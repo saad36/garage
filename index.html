@@ -52,7 +52,7 @@ button{cursor:pointer}
 .cost-vehicle-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .cost-vehicle-head div{display:flex;align-items:baseline;gap:7px;min-width:0}
 .cost-vehicle-head strong{font-size:14px}.cost-vehicle-head span{font-size:10px;color:var(--muted)}
-.cost-vehicle-head>b{font-size:18px;white-space:nowrap}
+.cost-vehicle-head>b{font-size:18px;white-space:nowrap}.add-vehicle-card{border:1px dashed var(--line);background:transparent;display:grid;place-items:center;min-height:120px}.add-vehicle-card button{width:100%;height:100%;min-height:120px;background:transparent;border:0;color:var(--muted);font-weight:800}.add-vehicle-card button:hover{color:var(--text)}.add-vehicle-card .plus{font-size:28px;display:block;line-height:1;margin-bottom:6px}.vehicle-image-placeholder{display:grid;place-items:center;height:100%;color:var(--muted);font-size:12px;font-weight:700}.manage-actions{display:flex;gap:8px;margin-top:14px}.manage-actions .btn{flex:1}.custom-detail{display:none}.custom-detail.show{display:block}.vehicle-pill{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:11px;font-weight:750;color:var(--muted)}
 .cost-breakdown{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
 .cost-breakdown div{background:var(--surface);border-radius:10px;padding:9px 10px}
 .cost-breakdown span{display:block;color:var(--muted);font-size:10px}.cost-breakdown b{display:block;font-size:14px;margin-top:2px}
@@ -119,10 +119,10 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
    <div class="mini-grid"><div class="mini"><b id="vRemain">85,455</b><span>km remaining</span></div><div class="mini"><b id="vEnergy">0.0</b><span>kWh logged</span></div></div>
    <button class="btn primary block" onclick="show('vistiq')">Open VISTIQ</button></div>
   </article>
- </div>
+ </div><div id="customVehicles" class="hero-grid" style="margin-top:8px"></div>
 
  <section class="card garage-costs">
-  <div class="section-head"><h2>Running costs</h2><span class="stat-label">Tracked so far</span></div>
+  <div class="section-head"><div><h2>Running costs</h2><span class="stat-label">Tracked so far</span></div><button class="btn smallbtn" onclick="openAddVehicle()">Add vehicle</button></div>
 
   <div class="cost-vehicle">
    <div class="cost-vehicle-head"><div><strong>2016 Audi A7</strong><span>Owned</span></div><b id="garageAudiTotal">$0.00</b></div>
@@ -210,6 +210,25 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
  <button data-nav="vistiq" onclick="show('vistiq')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="17" height="12" rx="2"/><path d="M21 10v4M7 12h6M10 9v6"/></svg>VISTIQ</button>
 </nav>
 
+
+
+<div class="modal" id="customVehicleModal"><div class="sheet"><div class="sheet-head"><div><h2 id="customVehicleTitle">Vehicle</h2><span id="customVehicleSubtitle" class="stat-label"></span></div><button class="iconbtn" onclick="closeCustomVehicle()">×</button></div>
+ <div id="customVehicleContent"></div>
+</div></div>
+
+<div class="modal" id="vehicleModal"><div class="sheet"><div class="sheet-head"><h2 id="vehicleModalTitle">Add vehicle</h2><button class="iconbtn" onclick="closeVehicleModal()">×</button></div>
+ <div class="form">
+  <div class="field"><label>Year *</label><input id="newYear" class="input" type="number" min="1900" max="2100" placeholder="2024"><div id="newYearErr" class="error">Enter a valid year.</div></div>
+  <div class="field"><label>Make *</label><input id="newMake" class="input" placeholder="Toyota"><div id="newMakeErr" class="error">Enter a make.</div></div>
+  <div class="field"><label>Model *</label><input id="newModel" class="input" placeholder="RAV4"><div id="newModelErr" class="error">Enter a model.</div></div>
+  <div class="field"><label>Powertrain</label><select id="newPower" class="input"><option>Gas</option><option>Hybrid</option><option>Plug-in Hybrid</option><option>Electric</option></select></div>
+  <div class="field"><label>Ownership</label><select id="newOwnership" class="input"><option>Owned</option><option>Leased</option></select></div>
+  <div class="field"><label>Image URL</label><input id="newImage" class="input" placeholder="https://..."><div class="stat-label">Optional. Paste a direct vehicle photo URL.</div></div>
+ </div>
+ <div class="manage-actions"><button class="btn" onclick="closeVehicleModal()">Cancel</button><button id="vehicleSaveBtn" class="btn primary" onclick="saveVehicleFromModal()">Add vehicle</button></div>
+ <div class="note">New vehicles are saved on this device. You can include them in your next Garage data export.</div>
+</div></div>
+
 <div class="modal" id="settingsModal"><div class="sheet"><div class="sheet-head"><h2>Garage settings</h2><button class="iconbtn" onclick="closeSettings()">×</button></div>
  <div class="form">
   <div class="field full"><label>VISTIQ total lease allowance</label><input id="sAllowance" class="input" type="number"></div>
@@ -225,9 +244,9 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
 
 <script>
 const KEY='garageDataV1';
-const initial={settings:{allowance:101847,vodo:16392,vRate:.20,eRate:.098},fuel:[],charge:[],maint:[]};
+const initial={settings:{allowance:101847,vodo:16392,vRate:.20,eRate:.098},fuel:[],charge:[],maint:[],vehicles:[]};
 let d=JSON.parse(localStorage.getItem(KEY)||'null')||structuredClone(initial);
-d.settings={...initial.settings,...(d.settings||{})};d.fuel=d.fuel||[];d.charge=d.charge||[];d.maint=d.maint||[];d.mileage=d.mileage||[];
+d.settings={...initial.settings,...(d.settings||{})};d.fuel=d.fuel||[];d.charge=d.charge||[];d.maint=d.maint||[];d.mileage=d.mileage||[];d.vehicles=d.vehicles||[];d.customFuel=d.customFuel||[];d.customCharge=d.customCharge||[];
 if(!d.mileage.length && d.settings.vodo)d.mileage=[{date:'2026-08-27',odo:d.settings.vodo}];
 const money=n=>'$'+Number(n||0).toFixed(2);
 const fmt=n=>Number(n||0).toLocaleString(undefined,{maximumFractionDigits:1});
@@ -248,7 +267,119 @@ function updateThemeIcon(){
  const dark=document.documentElement.classList.contains('dark');
  themeBtn.innerHTML=dark?'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>':'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.7 6.7 0 0 0 9.8 9.8Z"/></svg>';
 }
+function openAddVehicle(){
+ vehicleModalTitle.textContent='Add vehicle';editingVehicleId=null;vehicleSaveBtn.textContent='Add vehicle';
+ newYear.value='';newMake.value='';newModel.value='';newImage.value='';newPower.value='Gas';newOwnership.value='Owned';
+ ['newYear','newMake','newModel'].forEach(id=>setErr(id,false,''));
+ vehicleModal.classList.add('show');
+}
+let editingVehicleId=null;
+function closeVehicleModal(){vehicleModal.classList.remove('show');editingVehicleId=null}
+
+function saveVehicleFromModal(){if(editingVehicleId){updateVehicle();}else{addVehicle();}}
+function addVehicle(){
+ const year=+newYear.value,make=newMake.value.trim(),model=newModel.value.trim(),power=newPower.value,ownership=newOwnership.value,image=newImage.value.trim();
+ setErr('newYear',!(year>=1900&&year<=2100),'Enter a valid year.');setErr('newMake',!make,'Enter a make.');setErr('newModel',!model,'Enter a model.');
+ if(!(year>=1900&&year<=2100)||!make||!model)return;
+ d.vehicles.push({id:Date.now().toString(),year,make,model,power,ownership,image});editingVehicleId=null;
+ save();closeVehicleModal();render();toast(year+' '+make+' '+model+' added');
+}
+function updateVehicle(){
+ const year=+newYear.value,make=newMake.value.trim(),model=newModel.value.trim(),power=newPower.value,ownership=newOwnership.value,image=newImage.value.trim();
+ setErr('newYear',!(year>=1900&&year<=2100),'Enter a valid year.');setErr('newMake',!make,'Enter a make.');setErr('newModel',!model,'Enter a model.');
+ if(!(year>=1900&&year<=2100)||!make||!model)return;
+ const v=d.vehicles.find(x=>x.id===editingVehicleId);if(!v)return;
+ Object.assign(v,{year,make,model,power,ownership,image});save();closeVehicleModal();render();toast('Vehicle updated');
+}
+
+function openCustomVehicle(id){
+ const v=d.vehicles.find(x=>x.id===id);if(!v)return;
+ customVehicleTitle.textContent=v.year+' '+v.make+' '+v.model;
+ customVehicleSubtitle.textContent=v.power+' · '+v.ownership;
+ customVehicleContent.innerHTML=customTrackingMarkup(v);
+ customVehicleModal.classList.add('show');
+}
+function closeCustomVehicle(){customVehicleModal.classList.remove('show');customVehicleContent.innerHTML=''}
+function customTrackingMarkup(v){
+ const fuelish=['Gas','Hybrid','Plug-in Hybrid'].includes(v.power);
+ const electricish=['Electric','Plug-in Hybrid'].includes(v.power);
+ const fuel=d.customFuel||[];
+ const charge=d.customCharge||[];
+ const maint=d.maint.filter(x=>x.vehicle===v.id);
+ const fCost=fuel.filter(x=>x.vehicleId===v.id).reduce((s,x)=>s+x.spend,0);
+ const cCost=charge.filter(x=>x.vehicleId===v.id).reduce((s,x)=>s+x.cost,0);
+ const mCost=maint.reduce((s,x)=>s+x.cost,0);
+ return `<div class="kpis">
+   ${fuelish?`<div class="kpi"><b>${money(fCost)}</b><span>Fuel</span></div>`:''}
+   ${electricish?`<div class="kpi"><b>${money(cCost)}</b><span>Charging</span></div>`:''}
+   <div class="kpi"><b>${money(mCost)}</b><span>Maintenance</span></div>
+   <div class="kpi"><b>${money(fCost+cCost+mCost)}</b><span>Total</span></div>
+  </div>
+  ${fuelish?`<section class="card" style="margin-top:14px"><h2>Add fuel</h2><div class="form">
+   <div class="field"><label>Date *</label><input id="cvFuelDate" class="input" type="date"></div>
+   <div class="field"><label>Odometer *</label><input id="cvFuelOdo" class="input" type="number" placeholder="km"></div>
+   <div class="field"><label>Price per litre *</label><input id="cvFuelPrice" class="input" type="number" step=".001" placeholder="$ / L"></div>
+   <div class="field"><label>Total spent *</label><input id="cvFuelSpend" class="input" type="number" step=".01" placeholder="$"></div>
+   <button class="btn primary full" onclick="addCustomFuel('${v.id}')">Add fuel</button>
+  </div></section>`:''}
+  ${electricish?`<section class="card" style="margin-top:14px"><h2>Add charging</h2><div class="form">
+   <div class="field"><label>Date *</label><input id="cvChargeDate" class="input" type="date"></div>
+   <div class="field"><label>kWh added *</label><input id="cvChargeKwh" class="input" type="number" step=".1" placeholder="kWh"></div>
+   <div class="field"><label>Rate</label><input id="cvChargeRate" class="input" type="number" step=".001" value=".098" placeholder="$/kWh"></div>
+   <button class="btn primary full" onclick="addCustomCharge('${v.id}')">Add charging</button>
+  </div></section>`:''}
+  <section class="card" style="margin-top:14px"><h2>Add maintenance</h2><div class="form">
+   <div class="field"><label>Date *</label><input id="cvMaintDate" class="input" type="date"></div>
+   <div class="field"><label>Service *</label><input id="cvMaintType" class="input" placeholder="Oil change, tires..."></div>
+   <div class="field"><label>Cost *</label><input id="cvMaintCost" class="input" type="number" step=".01" placeholder="$"></div>
+   <div class="field"><label>Odometer</label><input id="cvMaintOdo" class="input" type="number" placeholder="km"></div>
+   <button class="btn primary full" onclick="addCustomMaintenance('${v.id}')">Add maintenance</button>
+  </div></section>
+  <section class="card" style="margin-top:14px"><h2>Maintenance history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Service</th><th>Odometer</th><th>Cost</th></tr></thead><tbody>${maint.sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${esc(x.type)}</td><td>${x.odo?fmt(x.odo):'—'}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No maintenance logged yet.</td></tr>'}</tbody></table></div></section>`;
+}
+function ensureCustomArrays(){d.customFuel=d.customFuel||[];d.customCharge=d.customCharge||[]}
+function addCustomFuel(id){
+ ensureCustomArrays();
+ const date=cvFuelDate.value,odo=+cvFuelOdo.value,price=+cvFuelPrice.value,spend=+cvFuelSpend.value;
+ if(!date||!odo||!price||!spend){toast('Complete all fuel fields');return}
+ const prev=[...d.customFuel].filter(x=>x.vehicleId===id&&x.odo<odo).sort((a,b)=>b.odo-a.odo)[0];
+ const litres=spend/price,dist=prev?odo-prev.odo:0;
+ d.customFuel.push({vehicleId:id,date,odo,price,spend,litres,eff:dist?litres/dist*100:null,cost100:dist?spend/dist*100:null});
+ save();openCustomVehicle(id);toast('Fuel added');
+}
+function addCustomCharge(id){
+ ensureCustomArrays();
+ const date=cvChargeDate.value,kwh=+cvChargeKwh.value,rate=+cvChargeRate.value||d.settings.eRate;
+ if(!date||!kwh){toast('Enter date and kWh');return}
+ d.customCharge.push({vehicleId:id,date,kwh,rate,cost:kwh*rate});
+ save();openCustomVehicle(id);toast('Charging added');
+}
+function addCustomMaintenance(id){
+ const date=cvMaintDate.value,type=cvMaintType.value.trim(),cost=+cvMaintCost.value,odo=+cvMaintOdo.value||0;
+ if(!date||!type||!cost){toast('Complete date, service and cost');return}
+ d.maint.push({date,vehicle:id,type,cost,odo});save();openCustomVehicle(id);toast('Maintenance added');
+}
+
+function renderCustomVehicles(){
+ const el=document.getElementById('customVehicles'); if(!el)return;
+ el.innerHTML=d.vehicles.map(v=>`
+ <article class="card vehicle">
+  <div class="vehicle-art" style="background:var(--surface2)">${v.image?`<img loading="lazy" src="${esc(v.image)}" alt="${esc(v.year+' '+v.make+' '+v.model)}">`:`<div class="vehicle-image-placeholder">${esc(v.power)}</div>`}</div>
+  <div class="vehicle-body"><div class="vehicle-title"><div><h2>${esc(v.year+' '+v.make+' '+v.model)}</h2><div class="vehicle-sub">${esc(v.power)}</div></div><span class="badge">${esc(v.ownership)}</span></div>
+  <button class="btn primary block" onclick="openCustomVehicle('${v.id}')">Open vehicle</button>
+  </div>
+ </article>`).join('');
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function manageVehicle(id){
+ const v=d.vehicles.find(x=>x.id===id);if(!v)return;
+ vehicleModalTitle.textContent=v.year+' '+v.make+' '+v.model;
+ newYear.value=v.year;newMake.value=v.make;newModel.value=v.model;newPower.value=v.power;newOwnership.value=v.ownership;newImage.value=v.image||'';
+ vehicleModal.classList.add('show');
+}
+
 function render(){
+ renderCustomVehicles();
  const f=[...d.fuel].sort((a,b)=>a.date.localeCompare(b.date));
  const c=[...d.charge].sort((a,b)=>a.date.localeCompare(b.date));
  const fs=f.reduce((s,x)=>s+x.spend,0),cs=c.reduce((s,x)=>s+x.cost,0);
@@ -346,7 +477,10 @@ function exportData(){
   fuel:d.fuel.map(x=>({...x})),
   charge:d.charge.map(x=>({...x})),
   mileage:d.mileage.map(x=>({...x})),
-  maint:d.maint.map(x=>({...x}))
+  maint:d.maint.map(x=>({...x})),
+  vehicles:d.vehicles.map(x=>({...x})),
+  customFuel:d.customFuel.map(x=>({...x})),
+  customCharge:d.customCharge.map(x=>({...x}))
  };
  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
  const url=URL.createObjectURL(blob);
