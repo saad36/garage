@@ -32,7 +32,7 @@ button{cursor:pointer}
 .card h2{font-size:18px;margin:0 0 13px;letter-spacing:-.2px}
 .hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .vehicle{padding:0;overflow:hidden}
-.vehicle-art{height:220px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#111827;position:relative}.vehicle-art img{width:100%;height:100%;object-fit:contain;display:block}.vehicle-art.audi:after,.vehicle-art.vistiq:after{display:none}
+.vehicle-art{height:220px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#111827;position:relative}.vehicle-art img{width:100%;height:100%;object-fit:cover;display:block}.vehicle-art.audi:after,.vehicle-art.vistiq:after{display:none}
 .vehicle-art.audi{background:linear-gradient(135deg,#111318,#353a42)}
 .vehicle-art.vistiq{background:linear-gradient(135deg,#dce9ef,#8faaba)}
 .vehicle-art svg{width:86%;height:86%}
@@ -78,8 +78,8 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:flex-end;justify-content:center;z-index:100;padding:12px}
 .modal.show{display:flex}.sheet{width:min(520px,100%);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px}
 .sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.sheet h2{margin:0}
-@media(max-width:680px){.app{padding:15px 10px 92px}.hero-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.vehicle-art{height:115px}.vehicle-body{padding:11px}.vehicle-title h2{font-size:14px;line-height:1.15}.vehicle-sub{font-size:10px;margin:4px 0 9px}.badge{font-size:9px;padding:4px 6px}.mini-grid{gap:5px}.mini{padding:8px}.mini b{font-size:14px}.mini span{font-size:9px}.vehicle .btn{font-size:11px;padding:9px 5px;margin-top:8px}.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr 1fr}.brand h1{font-size:25px}}
-@media(max-width:420px){.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr}.full{grid-column:auto}.vehicle-title{display:block}.badge{display:inline-block;margin-top:5px}.vehicle-art{height:105px}.vehicle-body{padding:9px}.vehicle-title h2{font-size:13px}.vehicle-sub{font-size:9px}.mini{padding:7px}.mini b{font-size:13px}.mini span{font-size:8px}.vehicle .btn{font-size:10px;padding:8px 3px}}
+@media(max-width:680px){.app{padding:15px 10px 92px}.hero-grid{grid-template-columns:1fr 1fr;gap:8px}.vehicle-art{height:145px}.vehicle-body{padding:11px}.vehicle-title h2{font-size:15px;line-height:1.15}.vehicle-sub{font-size:11px;margin:4px 0 9px}.badge{font-size:9px;padding:4px 7px}.mini-grid{gap:5px}.mini{padding:8px}.mini b{font-size:15px}.mini span{font-size:9px}.btn.block{padding:9px 6px;font-size:12px;margin-top:8px}.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr 1fr}.brand h1{font-size:25px}}
+@media(max-width:420px){.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr}.full{grid-column:auto}.vehicle-title{display:block}.badge{display:inline-block;margin-top:7px}}
 </style>
 </head>
 <body>
@@ -100,13 +100,13 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
   <article class="card vehicle">
    <div class="vehicle-art audi"><img loading="lazy" src="https://static.cargurus.com/images/site/2018/02/24/12/42/2016_audi_a7_3_0t_quattro_prestige_awd-pic-2046397039413113867-1600x1200.jpeg" alt="Black 2016 Audi A7"></div>
    <div class="vehicle-body"><div class="vehicle-title"><div><h2>2016 Audi A7</h2><div class="vehicle-sub">Fuel & efficiency</div></div><span class="badge">Owned</span></div>
-   <div class="mini-grid"><div class="mini"><b id="audiEff">—</b><span>L/100 km</span></div><div class="mini"><b id="audiCost">—</b><span>$/100 km</span></div></div>
+   <div class="mini-grid"><div class="mini"><b id="audiEff">—</b><span>L/100 km</span></div><div class="mini"><b id="audiCost">—</b><span>$/100 km</span></div></div><div class="vehicle-sub" style="margin-top:9px">Maintenance: <strong id="cardMaintAudi">$0</strong></div>
    <button class="btn primary block" onclick="show('audi')">Open Audi</button></div>
   </article>
   <article class="card vehicle">
    <div class="vehicle-art vistiq"><img loading="lazy" src="https://media.whichcar.com.au/uploads/2023/12/13b25440-2026-cadillac-vistiq-front.jpg" alt="Blue 2026 Cadillac VISTIQ"></div>
    <div class="vehicle-body"><div class="vehicle-title"><div><h2>2026 Cadillac VISTIQ</h2><div class="vehicle-sub">Charging & lease</div></div><span class="badge">Leased</span></div>
-   <div class="mini-grid"><div class="mini"><b id="vRemain">85,455</b><span>km remaining</span></div><div class="mini"><b id="vEnergy">0.0</b><span>kWh logged</span></div></div>
+   <div class="mini-grid"><div class="mini"><b id="vRemain">85,455</b><span>km remaining</span></div><div class="mini"><b id="vEnergy">0.0</b><span>kWh logged</span></div></div><div class="vehicle-sub" style="margin-top:9px">Maintenance: <strong id="cardMaintVistiq">$0</strong></div>
    <button class="btn primary block" onclick="show('vistiq')">Open VISTIQ</button></div>
   </article>
  </div>
@@ -115,18 +115,7 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
   <div class="kpis"><div class="kpi"><b id="sumFuel">$0</b><span>Audi fuel</span></div><div class="kpi"><b id="sumCharge">$0</b><span>VISTIQ charging</span></div><div class="kpi"><b id="sumMaint">$0</b><span>Maintenance</span></div><div class="kpi"><b id="sumTotal">$0</b><span>Garage total</span></div></div>
  </section>
 
- <section class="card"><div class="section-head"><h2>Maintenance</h2><button class="btn smallbtn" onclick="focusMaintenance()">Add service</button></div>
-  <div class="kpis"><div class="kpi"><b id="maintTotal">$0</b><span>Total maintenance</span></div><div class="kpi"><b id="maintCount">0</b><span>Services</span></div><div class="kpi"><b id="maintAudi">$0</b><span>Audi</span></div><div class="kpi"><b id="maintVistiq">$0</b><span>VISTIQ</span></div></div>
-  <div class="form" id="maintenanceForm" style="margin-top:13px">
-   <div class="field"><label>Date *</label><input id="mDate" class="input" type="date"><div id="mDateErr" class="error">Choose a date.</div></div>
-   <div class="field"><label>Vehicle</label><select id="mVehicle" class="input"><option>Audi A7</option><option>Cadillac VISTIQ</option></select></div>
-   <div class="field"><label>Service *</label><input id="mType" class="input" placeholder="Oil change"><div id="mTypeErr" class="error">Enter a service.</div></div>
-   <div class="field"><label>Cost *</label><input id="mCost" class="input" type="number" step=".01" placeholder="$"><div id="mCostErr" class="error">Enter a valid cost.</div></div>
-   <div class="field"><label>Odometer</label><input id="mOdo" class="input" type="number" placeholder="km"></div>
-   <button class="btn primary full" onclick="addMaintenance()">Add maintenance</button>
-  </div>
-  <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Date</th><th>Vehicle</th><th>Service</th><th>Odometer</th><th>Cost</th></tr></thead><tbody id="maintHistory"></tbody></table></div>
- </section>
+
 </section>
 
 <section id="audi" class="screen">
@@ -140,7 +129,18 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
  </div><div class="note">Enter the odometer, price per litre and total spent. Litres, distance, L/100 km and cost/100 km are calculated automatically.</div></section>
  <section class="card"><h2>Efficiency trend</h2><canvas id="fuelChart" class="chart" width="850" height="220"></canvas></section>
  <section class="card"><h2>Fill-up history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Odometer</th><th>$/L</th><th>Spent</th><th>Litres</th><th>L/100</th></tr></thead><tbody id="fuelHistory"></tbody></table></div></section>
-</section>
+ <section class="card"><div class="section-head"><h2>Maintenance</h2><span class="stat-label">Audi service history</span></div>
+  <div class="kpis"><div class="kpi"><b id="maintTotal">$0</b><span>Total maintenance</span></div><div class="kpi"><b id="maintCount">0</b><span>Services</span></div><div class="kpi"><b id="maintAudi">$0</b><span>Audi</span></div><div class="kpi"><b id="maintVistiq">$0</b><span>VISTIQ</span></div></div>
+  <div class="form" id="maintenanceForm" style="margin-top:13px">
+   <div class="field"><label>Date *</label><input id="mDate" class="input" type="date"><div id="mDateErr" class="error">Choose a date.</div></div>
+   <div class="field"><label>Vehicle</label><select id="mVehicle" class="input"><option selected>Audi A7</option><option>Cadillac VISTIQ</option></select></div>
+   <div class="field"><label>Service *</label><input id="mType" class="input" placeholder="Oil change"><div id="mTypeErr" class="error">Enter a service.</div></div>
+   <div class="field"><label>Cost *</label><input id="mCost" class="input" type="number" step=".01" placeholder="$"><div id="mCostErr" class="error">Enter a valid cost.</div></div>
+   <div class="field"><label>Odometer</label><input id="mOdo" class="input" type="number" placeholder="km"></div>
+   <button class="btn primary full" onclick="addMaintenance()">Add maintenance</button>
+  </div>
+  <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Date</th><th>Service</th><th>Odometer</th><th>Cost</th></tr></thead><tbody data-maint-vehicle="Audi A7"></tbody></table></div>
+ </section></section>
 
 <section id="vistiq" class="screen">
  <section class="card"><div class="section-head"><div><div class="stat-big" id="vKm">16,392</div><div class="stat-label">Current odometer</div></div><span class="badge">Leased</span></div>
@@ -160,7 +160,18 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
  </div><div class="note">Default is home charging at Ontario TOU off-peak. Your saved default rate is $0.098/kWh. You do not need to enter mileage when charging.</div></section>
  <section class="card"><h2>Charging history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>kWh</th><th>Rate</th><th>Cost</th></tr></thead><tbody id="chargeHistory"></tbody></table></div></section>
  <section class="card"><h2>Mileage history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Odometer</th><th>Since last</th></tr></thead><tbody id="mileageHistory"></tbody></table></div></section>
-</section>
+ <section class="card"><div class="section-head"><h2>Maintenance</h2><span class="stat-label">VISTIQ service history</span></div>
+  <div class="kpis"><div class="kpi"><b id="maintTotal">$0</b><span>Total maintenance</span></div><div class="kpi"><b id="maintCount">0</b><span>Services</span></div><div class="kpi"><b id="maintAudi">$0</b><span>Audi</span></div><div class="kpi"><b id="maintVistiq">$0</b><span>VISTIQ</span></div></div>
+  <div class="form" id="maintenanceForm" style="margin-top:13px">
+   <div class="field"><label>Date *</label><input id="mDate" class="input" type="date"><div id="mDateErr" class="error">Choose a date.</div></div>
+   <div class="field"><label>Vehicle</label><select id="mVehicle" class="input"><option>Audi A7</option><option selected>Cadillac VISTIQ</option></select></div>
+   <div class="field"><label>Service *</label><input id="mType" class="input" placeholder="Oil change"><div id="mTypeErr" class="error">Enter a service.</div></div>
+   <div class="field"><label>Cost *</label><input id="mCost" class="input" type="number" step=".01" placeholder="$"><div id="mCostErr" class="error">Enter a valid cost.</div></div>
+   <div class="field"><label>Odometer</label><input id="mOdo" class="input" type="number" placeholder="km"></div>
+   <button class="btn primary full" onclick="addMaintenance()">Add maintenance</button>
+  </div>
+  <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Date</th><th>Service</th><th>Odometer</th><th>Cost</th></tr></thead><tbody data-maint-vehicle="Cadillac VISTIQ"></tbody></table></div>
+ </section></section>
 </main>
 </div>
 
@@ -233,12 +244,14 @@ function render(){
  const currentPct=currentOdo/d.settings.allowance*100;
  vKwh100.textContent=cEff?cEff.toFixed(1):'—';vCost100.textContent=cEff?money(cEff*d.settings.eRate):'—';vLeasePct.textContent=currentPct.toFixed(1)+'%';vBar.style.width=Math.min(100,currentPct)+'%';
  sumFuel.textContent=money(fs);sumCharge.textContent=money(cs);sumMaint.textContent=money(mt);sumTotal.textContent=money(fs+cs+mt);
- maintTotal.textContent=money(mt);maintCount.textContent=d.maint.length;maintAudi.textContent=money(ma);maintVistiq.textContent=money(mv);
+ maintTotal.textContent=money(mt);maintCount.textContent=d.maint.length;maintAudi.textContent=money(ma);maintVistiq.textContent=money(mv);cardMaintAudi.textContent=money(ma);cardMaintVistiq.textContent=money(mv);
  fuelHistory.innerHTML=f.slice().reverse().map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${fmt(x.odo)}</td><td>${money(x.price)}</td><td>${money(x.spend)}</td><td>${x.litres.toFixed(1)}</td><td>${x.eff?x.eff.toFixed(1):'—'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">No fill-ups logged yet.</td></tr>';
  chargeHistory.innerHTML=c.slice().reverse().map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.kwh.toFixed(1)}</td><td>${money(x.rate)}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No charging sessions logged yet.</td></tr>';
  const mh=miles.slice().reverse();
  mileageHistory.innerHTML=mh.map((x,i)=>{const newer=mh[i-1];const since=newer?x.odo-newer.odo:0;return `<tr><td>${dateFmt(x.date)}</td><td>${fmt(x.odo)}</td><td>${since>0?fmt(since)+' km':'—'}</td></tr>`}).join('')||'<tr><td colspan="3" class="empty">No mileage readings logged yet.</td></tr>';
- maintHistory.innerHTML=[...d.maint].sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.vehicle}</td><td>${x.type}</td><td>${x.odo?fmt(x.odo):'—'}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No maintenance logged yet.</td></tr>';
+ const renderMaintRows=(vehicle)=>d.maint.filter(x=>x.vehicle===vehicle).sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.type}</td><td>${x.odo?fmt(x.odo):'—'}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No maintenance logged yet.</td></tr>';
+ document.querySelectorAll('[data-maint-vehicle="Audi A7"]').forEach(el=>el.innerHTML=renderMaintRows('Audi A7'));
+ document.querySelectorAll('[data-maint-vehicle="Cadillac VISTIQ"]').forEach(el=>el.innerHTML=renderMaintRows('Cadillac VISTIQ'));
  drawFuel(f);
 }
 function setErr(id,bad,msg){
