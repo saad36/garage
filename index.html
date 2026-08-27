@@ -48,6 +48,16 @@ button{cursor:pointer}
 .btn.primary{background:var(--accent);color:var(--accentText);border-color:var(--accent)}
 .btn.block{width:100%;margin-top:12px}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.cost-vehicle{border:1px solid var(--line);background:var(--surface2);border-radius:14px;padding:13px;margin-top:9px}
+.cost-vehicle-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.cost-vehicle-head div{display:flex;align-items:baseline;gap:7px;min-width:0}
+.cost-vehicle-head strong{font-size:14px}.cost-vehicle-head span{font-size:10px;color:var(--muted)}
+.cost-vehicle-head>b{font-size:18px;white-space:nowrap}
+.cost-breakdown{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
+.cost-breakdown div{background:var(--surface);border-radius:10px;padding:9px 10px}
+.cost-breakdown span{display:block;color:var(--muted);font-size:10px}.cost-breakdown b{display:block;font-size:14px;margin-top:2px}
+.garage-total{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:14px 4px 2px;border-top:1px solid var(--line)}
+.garage-total span{display:block;font-size:14px;font-weight:800}.garage-total small{display:block;color:var(--muted);font-size:10px;margin-top:2px}.garage-total>b{font-size:24px}
 .kpi{background:var(--surface2);border-radius:13px;padding:12px}
 .kpi b{display:block;font-size:19px}.kpi span{color:var(--muted);font-size:11px}
 .section-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -78,7 +88,7 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:flex-end;justify-content:center;z-index:100;padding:12px}
 .modal.show{display:flex}.sheet{width:min(520px,100%);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px}
 .sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.sheet h2{margin:0}
-@media(max-width:680px){.app{padding:15px 10px 92px}.hero-grid{grid-template-columns:1fr 1fr;gap:8px}.vehicle-art{height:145px}.vehicle-body{padding:11px}.vehicle-title h2{font-size:15px;line-height:1.15}.vehicle-sub{font-size:11px;margin:4px 0 9px}.badge{font-size:9px;padding:4px 7px}.mini-grid{gap:5px}.mini{padding:8px}.mini b{font-size:15px}.mini span{font-size:9px}.btn.block{padding:9px 6px;font-size:12px;margin-top:8px}.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr 1fr}.brand h1{font-size:25px}}
+@media(max-width:680px){.app{padding:15px 10px 92px}.hero-grid{grid-template-columns:1fr 1fr;gap:8px}.vehicle-art{height:145px}.vehicle-body{padding:11px}.vehicle-title h2{font-size:15px;line-height:1.15}.vehicle-sub{font-size:11px;margin:4px 0 9px}.cost-vehicle{padding:11px}.cost-vehicle-head strong{font-size:13px}.cost-vehicle-head>b{font-size:16px}.garage-total>b{font-size:21px}.badge{font-size:9px;padding:4px 7px}.mini-grid{gap:5px}.mini{padding:8px}.mini b{font-size:15px}.mini span{font-size:9px}.btn.block{padding:9px 6px;font-size:12px;margin-top:8px}.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr 1fr}.brand h1{font-size:25px}}
 @media(max-width:420px){.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr}.full{grid-column:auto}.vehicle-title{display:block}.badge{display:inline-block;margin-top:7px}}
 </style>
 </head>
@@ -111,13 +121,29 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
   </article>
  </div>
 
- <section class="card"><div class="section-head"><h2>Cost summary</h2><span class="stat-label">Tracked so far</span></div>
-  <div class="kpis"><div class="kpi"><b id="sumFuel">$0</b><span>Audi fuel</span></div><div class="kpi"><b id="sumCharge">$0</b><span>VISTIQ charging</span></div><div class="kpi"><b id="sumMaint">$0</b><span>Maintenance</span></div><div class="kpi"><b id="sumTotal">$0</b><span>Garage total</span></div></div>
- </section>
+ <section class="card garage-costs">
+  <div class="section-head"><h2>Running costs</h2><span class="stat-label">Tracked so far</span></div>
 
+  <div class="cost-vehicle">
+   <div class="cost-vehicle-head"><div><strong>2016 Audi A7</strong><span>Owned</span></div><b id="garageAudiTotal">$0.00</b></div>
+   <div class="cost-breakdown">
+    <div><span>Fuel</span><b id="sumFuel">$0.00</b></div>
+    <div><span>Maintenance</span><b id="garageAudiMaint">$0.00</b></div>
+   </div>
+  </div>
 
- <section class="card"><div class="section-head"><h2>Maintenance</h2><span class="stat-label">Summary</span></div>
-  <div class="kpis"><div class="kpi"><b id="maintTotal">$0</b><span>Total maintenance</span></div><div class="kpi"><b id="maintCount">0</b><span>Services</span></div><div class="kpi"><b id="maintAudi">$0</b><span>Audi</span></div><div class="kpi"><b id="maintVistiq">$0</b><span>VISTIQ</span></div></div>
+  <div class="cost-vehicle">
+   <div class="cost-vehicle-head"><div><strong>2026 Cadillac VISTIQ</strong><span>Leased</span></div><b id="garageVistiqTotal">$0.00</b></div>
+   <div class="cost-breakdown">
+    <div><span>Charging</span><b id="sumCharge">$0.00</b></div>
+    <div><span>Maintenance</span><b id="garageVistiqMaint">$0.00</b></div>
+   </div>
+  </div>
+
+  <div class="garage-total">
+   <div><span>Garage total</span><small>All tracked costs</small></div>
+   <b id="sumTotal">$0.00</b>
+  </div>
  </section>
 </section>
 
@@ -246,8 +272,9 @@ function render(){
  vKm.textContent=fmt(currentOdo);vRem.textContent=fmt(Math.max(0,d.settings.allowance-currentOdo));
  const currentPct=currentOdo/d.settings.allowance*100;
  vKwh100.textContent=cEff?cEff.toFixed(1):'—';vCost100.textContent=cEff?money(cEff*d.settings.eRate):'—';vLeasePct.textContent=currentPct.toFixed(1)+'%';vBar.style.width=Math.min(100,currentPct)+'%';
- sumFuel.textContent=money(fs);sumCharge.textContent=money(cs);sumMaint.textContent=money(mt);sumTotal.textContent=money(fs+cs+mt);
- maintTotal.textContent=money(mt);maintCount.textContent=d.maint.length;maintAudi.textContent=money(ma);maintVistiq.textContent=money(mv);
+ sumFuel.textContent=money(fs);sumCharge.textContent=money(cs);sumTotal.textContent=money(fs+cs+mt);
+ garageAudiMaint.textContent=money(ma);garageVistiqMaint.textContent=money(mv);
+ garageAudiTotal.textContent=money(fs+ma);garageVistiqTotal.textContent=money(cs+mv);
  aMaintTotal.textContent=money(ma);aMaintCount.textContent=d.maint.filter(x=>x.vehicle==='Audi A7').length;
  vMaintTotal.textContent=money(mv);vMaintCount.textContent=d.maint.filter(x=>x.vehicle==='Cadillac VISTIQ').length;
  const aRows=d.maint.filter(x=>x.vehicle==='Audi A7').sort((a,b)=>b.date.localeCompare(a.date));
