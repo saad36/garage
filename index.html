@@ -32,7 +32,7 @@ button{cursor:pointer}
 .card h2{font-size:18px;margin:0 0 13px;letter-spacing:-.2px}
 .hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .vehicle{padding:0;overflow:hidden}
-.vehicle-art{height:180px;display:grid;place-items:center;overflow:hidden;background:#111827;position:relative}.vehicle-art img{width:100%;height:100%;object-fit:cover;display:block}.vehicle-art.audi:after,.vehicle-art.vistiq:after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.18),transparent 45%);pointer-events:none}
+.vehicle-art{height:220px;display:grid;place-items:center;overflow:hidden;background:#111827;position:relative;padding:10px}.vehicle-art img{width:100%;height:100%;object-fit:contain;display:block}.vehicle-art.audi:after,.vehicle-art.vistiq:after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.18),transparent 45%);pointer-events:none}
 .vehicle-art.audi{background:linear-gradient(135deg,#111318,#353a42)}
 .vehicle-art.vistiq{background:linear-gradient(135deg,#dce9ef,#8faaba)}
 .vehicle-art svg{width:86%;height:86%}
@@ -78,7 +78,7 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:flex-end;justify-content:center;z-index:100;padding:12px}
 .modal.show{display:flex}.sheet{width:min(520px,100%);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px}
 .sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.sheet h2{margin:0}
-@media(max-width:680px){.app{padding:15px 12px 92px}.hero-grid{grid-template-columns:1fr}.vehicle-art{height:155px}.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr 1fr}.brand h1{font-size:25px}}
+@media(max-width:680px){.app{padding:15px 12px 92px}.hero-grid{grid-template-columns:1fr}.vehicle-art{height:220px}.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr 1fr}.brand h1{font-size:25px}}
 @media(max-width:420px){.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr}.full{grid-column:auto}.vehicle-title{display:block}.badge{display:inline-block;margin-top:7px}}
 </style>
 </head>
