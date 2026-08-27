@@ -3,82 +3,300 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#111827">
+<meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="./manifest.webmanifest">
 <title>My Garage</title>
 <style>
-:root{--bg:#f5f6f8;--card:#fff;--text:#111827;--muted:#6b7280;--line:#e5e7eb;--soft:#f8fafc;--blue:#2563eb;--green:#15803d;--red:#dc2626;--nav:#fff;--shadow:0 2px 12px #00000008}html.dark{--bg:#0b0f14;--card:#151b23;--text:#f3f4f6;--muted:#9ca3af;--line:#28313d;--soft:#1b232d;--nav:#111820;--shadow:0 4px 18px #00000035}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:920px;margin:auto;padding:20px 14px 50px}
-h1{margin:0;font-size:29px}h2{margin:0 0 12px;font-size:19px}.muted{color:var(--muted);font-size:13px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin:12px 0;box-shadow:var(--shadow)}.cars{display:grid;grid-template-columns:1fr 1fr;gap:14px}.car{padding:0;overflow:hidden}
-.car-img{height:185px;display:flex;align-items:center;justify-content:center}.audi{background:linear-gradient(135deg,#111317,#34383f)}.caddy{background:linear-gradient(135deg,#d8e7ef,#91adbd)}.car-img svg{width:82%;height:82%}.car-body{padding:16px}
-.badge{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:12px;font-weight:700;margin-top:7px}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.metric{background:var(--soft);border-radius:13px;padding:12px}.metric b{display:block;font-size:19px}.metric span{font-size:12px;color:var(--muted)}
-.primary,.secondary{border:1px solid var(--line);border-radius:11px;padding:11px 14px;font:inherit;font-weight:700;cursor:pointer}.primary{background:#111827;color:#fff;border-color:#111827}.secondary{background:var(--card);color:var(--text)}.linkbtn{width:100%;margin-top:14px}
-.tabs{display:flex;gap:7px;margin-bottom:10px}.tab{flex:1}.active{background:#111827;color:#fff}.view{display:none}.view.active{display:block}
-.form{display:grid;grid-template-columns:1fr 1fr;gap:9px}.input{width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;font:inherit;background:var(--card);color:var(--text)}select.input{appearance:auto}.full{grid-column:1/-1}.note{background:var(--soft);border-radius:12px;padding:12px;font-size:13px;margin-top:12px}.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 5px;border-bottom:1px solid var(--line);font-size:13px}th{color:var(--muted)}.bar{height:10px;background:#edf0f4;border-radius:20px;overflow:hidden;margin-top:14px}.fill{height:100%;background:var(--blue);border-radius:20px}.modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center;padding:16px}.modal.show{display:flex}.modalbox{background:var(--card);color:var(--text);border-radius:18px;padding:20px;width:min(520px,100%)}canvas{width:100%;height:210px}
-.icon{width:20px;height:20px}.btnrow{display:flex;gap:8px;margin-top:14px}
-
-.mainnav{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--nav);border:1px solid var(--line);border-radius:15px;padding:5px;margin:0 0 14px;position:sticky;top:8px;z-index:10;box-shadow:var(--shadow)}
-.navbtn{border:0;background:transparent;color:var(--muted);border-radius:11px;padding:10px 8px;font:inherit;font-weight:750;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px}
-.navbtn.active{background:var(--text);color:var(--card)}
-.navicon{width:18px;height:18px}.homeContent{display:block}.view{display:none}.view.active{display:block}
-@media(max-width:680px){.mainnav{position:sticky;top:6px}.navbtn{font-size:13px;padding:10px 5px}}
-@media(max-width:680px){.cars{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.car-img{height:165px}}
+:root{
+ --bg:#f4f6f8;--surface:#fff;--surface2:#f8fafc;--text:#0f172a;--muted:#64748b;
+ --line:#e2e8f0;--accent:#0f172a;--accentText:#fff;--blue:#2563eb;--green:#15803d;
+ --shadow:0 8px 30px rgba(15,23,42,.06);--radius:18px
+}
+html.dark{--bg:#090d13;--surface:#111827;--surface2:#18212d;--text:#f8fafc;--muted:#94a3b8;
+ --line:#263244;--accent:#f8fafc;--accentText:#0f172a;--blue:#60a5fa;--green:#4ade80;
+ --shadow:0 10px 30px rgba(0,0,0,.28)}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.app{max-width:900px;margin:auto;padding:18px 14px 90px}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.brand h1{font-size:28px;line-height:1.05;margin:0;font-weight:800;letter-spacing:-.5px}
+.brand p{margin:5px 0 0;color:var(--muted);font-size:13px}
+.header-actions{display:flex;gap:8px}
+.iconbtn{width:42px;height:42px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text);display:grid;place-items:center}
+.icon{width:19px;height:19px}
+.screen{display:none}.screen.active{display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;margin-bottom:14px}
+.card h2{font-size:18px;margin:0 0 13px;letter-spacing:-.2px}
+.hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.vehicle{padding:0;overflow:hidden}
+.vehicle-art{height:180px;display:grid;place-items:center;overflow:hidden;background:#111827;position:relative}.vehicle-art img{width:100%;height:100%;object-fit:cover;display:block}.vehicle-art.audi:after,.vehicle-art.vistiq:after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.18),transparent 45%);pointer-events:none}
+.vehicle-art.audi{background:linear-gradient(135deg,#111318,#353a42)}
+.vehicle-art.vistiq{background:linear-gradient(135deg,#dce9ef,#8faaba)}
+.vehicle-art svg{width:86%;height:86%}
+.vehicle-body{padding:17px}
+.vehicle-title{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.vehicle-title h2{margin:0;font-size:20px}
+.badge{white-space:nowrap;border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:11px;font-weight:750}
+.vehicle-sub{color:var(--muted);font-size:13px;margin:5px 0 14px}
+.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mini{background:var(--surface2);border-radius:13px;padding:11px}
+.mini b{display:block;font-size:18px}.mini span{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:11px;padding:11px 14px;font-weight:750}
+.btn.primary{background:var(--accent);color:var(--accentText);border-color:var(--accent)}
+.btn.block{width:100%;margin-top:12px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.kpi{background:var(--surface2);border-radius:13px;padding:12px}
+.kpi b{display:block;font-size:19px}.kpi span{color:var(--muted);font-size:11px}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.section-head h2{margin:0}
+.smallbtn{padding:8px 10px;font-size:12px}
+.note{background:var(--surface2);border-radius:12px;padding:12px;color:var(--muted);font-size:12px;line-height:1.45;margin-top:12px}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.field{display:flex;flex-direction:column;gap:5px}.field label{font-size:11px;color:var(--muted);font-weight:700}
+.input{width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;background:var(--surface);color:var(--text);outline:none}.input.invalid{border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.10)}.error{display:none;color:#dc2626;font-size:11px;font-weight:650;margin-top:3px}.error.show{display:block}.toast{position:fixed;z-index:120;left:50%;bottom:82px;transform:translateX(-50%);background:var(--accent);color:var(--accentText);padding:11px 15px;border-radius:12px;box-shadow:var(--shadow);font-size:13px;font-weight:750;opacity:0;pointer-events:none;transition:opacity .2s}.toast.show{opacity:1}
+.input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.full{grid-column:1/-1}
+.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:540px}
+th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-size:12px}th{color:var(--muted);font-weight:700}
+.progress{height:9px;background:var(--surface2);border-radius:20px;overflow:hidden}.progress>div{height:100%;background:var(--blue);border-radius:20px}
+.stat-big{font-size:34px;font-weight:850;letter-spacing:-1px}
+.stat-label{font-size:12px;color:var(--muted)}
+.chart{width:100%;height:220px;display:block}
+.empty{color:var(--muted);font-size:13px;padding:10px 0}
+.nav{
+ position:fixed;z-index:50;left:50%;bottom:12px;transform:translateX(-50%);
+ width:min(600px,calc(100% - 24px));background:color-mix(in srgb,var(--surface) 94%,transparent);
+ border:1px solid var(--line);box-shadow:0 10px 35px rgba(15,23,42,.15);border-radius:17px;
+ padding:5px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;backdrop-filter:blur(14px)
+}
+.nav button{border:0;background:transparent;color:var(--muted);border-radius:12px;padding:9px 6px;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:6px}
+.nav button.active{background:var(--accent);color:var(--accentText)}
+.nav svg{width:18px;height:18px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:flex-end;justify-content:center;z-index:100;padding:12px}
+.modal.show{display:flex}.sheet{width:min(520px,100%);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.sheet h2{margin:0}
+@media(max-width:680px){.app{padding:15px 12px 92px}.hero-grid{grid-template-columns:1fr}.vehicle-art{height:155px}.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr 1fr}.brand h1{font-size:25px}}
+@media(max-width:420px){.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr}.full{grid-column:auto}.vehicle-title{display:block}.badge{display:inline-block;margin-top:7px}}
 </style>
 </head>
-<body><main>
-<header class="top"><div><h1>My Garage</h1><div class="muted">Your vehicles, energy and running costs</div></div>
-<div style="display:flex;gap:7px"><button class="secondary" onclick="toggleTheme()" aria-label="Toggle dark mode" id="themeBtn"></button><button class="secondary" onclick="openSettings()" aria-label="Settings"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-2.6V20a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1A1.7 1.7 0 0 0 8 15a1.7 1.7 0 0 0-1.6-1H6v-2.6h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V5h2.6v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2V14h-.2a1.7 1.7 0 0 0-1.6 1Z"/></svg></button></div></header>
-<nav class="mainnav" aria-label="Garage navigation">
-<button class="navbtn active" data-nav="home" onclick="show('home')"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>Garage</button>
-<button class="navbtn" data-nav="audi" onclick="show('audi')"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 15h2l2-5h10l2 5h2v4h-2v2h-2v-2H7v2H5v-2H3z"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/></svg>Audi</button>
-<button class="navbtn" data-nav="vistiq" onclick="show('vistiq')"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="17" height="12" rx="2"/><path d="M21 10v4M7 12h6M10 9v6"/></svg>VISTIQ</button>
-</nav>
-<div id="homeContent">
-<section class="cars">
-<article class="card car"><div class="car-img audi"><svg viewBox="0 0 500 220" fill="none" stroke="#fff" stroke-width="6"><path d="M70 155h35l28-63c6-13 17-20 32-20h151c15 0 28 8 35 21l29 62h39c11 0 20 9 20 20v9H60v-9c0-11 0-20 10-20Z"/><circle cx="145" cy="184" r="24"/><circle cx="355" cy="184" r="24"/><path d="M132 103h176l20 45H112l20-45Z"/></svg></div><div class="car-body"><h2>2016 Audi A7</h2><span class="badge">Owned · Paid in full</span><div class="metrics" style="margin-top:14px"><div class="metric"><b id="audiEff">—</b><span>L/100 km</span></div><div class="metric"><b id="audiCost">—</b><span>$/100 km</span></div></div><button class="primary linkbtn" onclick="show('audi')">Open Audi</button></div></article>
-<article class="card car"><div class="car-img caddy"><svg viewBox="0 0 500 220" fill="none" stroke="#173447" stroke-width="6"><path d="M65 156h42l26-62c6-14 19-22 34-22h146c16 0 29 8 36 22l28 62h45c9 0 16 7 16 16v12H55v-12c0-9 1-16 10-16Z"/><circle cx="145" cy="184" r="24"/><circle cx="362" cy="184" r="24"/><path d="M137 103h172l18 44H118l19-44Z"/></svg></div><div class="car-body"><h2>2026 Cadillac VISTIQ</h2><span class="badge">Leased</span><div class="metrics" style="margin-top:14px"><div class="metric"><b id="vRemain">85,455</b><span>km remaining</span></div><div class="metric"><b id="vEnergy">0.0</b><span>kWh logged</span></div></div><button class="primary linkbtn" onclick="show('vistiq')">Open VISTIQ</button></div></article></section>
+<body>
+<div class="app">
+<header class="header">
+ <div class="brand"><h1>My Garage</h1><p>Vehicles, energy and running costs</p></div>
+ <div class="header-actions">
+  <button class="iconbtn" id="themeBtn" onclick="toggleTheme()" aria-label="Toggle dark mode"></button>
+  <button class="iconbtn" onclick="openSettings()" aria-label="Garage settings">
+   <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-2.6V20a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1A1.7 1.7 0 0 0 8 15a1.7 1.7 0 0 0-1.6-1H6v-2.6h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9-1.6V5h2.6v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2V14h-.2a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+  </button>
+ </div>
+</header>
 
-<section class="card"><h2>Garage cost summary</h2><div class="metrics"><div class="metric"><b id="sumFuel">$0.00</b><span>Audi fuel</span></div><div class="metric"><b id="sumCharge">$0.00</b><span>VISTIQ charging</span></div><div class="metric"><b id="sumMaint">$0.00</b><span>Maintenance</span></div><div class="metric"><b id="sumTotal">$0.00</b><span>Tracked total</span></div></div><div class="note">Energy, maintenance and lease-related tracking are kept separate. Lease payments are not included until entered.</div></section>
-<section class="card">
-<h2>Maintenance</h2>
-<div class="metrics">
-<div class="metric"><b id="maintTotal">$0.00</b><span>total maintenance</span></div>
-<div class="metric"><b id="maintCount">0</b><span>services logged</span></div>
-<div class="metric"><b id="maintAudi">$0.00</b><span>Audi maintenance</span></div>
-<div class="metric"><b id="maintVistiq">$0.00</b><span>VISTIQ maintenance</span></div>
-</div>
-<div class="form" style="margin-top:12px">
-<input id="mDate" class="input" type="date">
-<select id="mVehicle" class="input"><option value="Audi A7">Audi A7</option><option value="Cadillac VISTIQ">Cadillac VISTIQ</option></select>
-<input id="mType" class="input" placeholder="Service (e.g. Oil change)">
-<input id="mCost" class="input" type="number" step=".01" placeholder="Cost ($)">
-<input id="mOdo" class="input" type="number" placeholder="Odometer (km)">
-<button class="primary full" onclick="addMaintenance()">Add maintenance</button>
-</div>
-<div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Date</th><th>Vehicle</th><th>Service</th><th>Odometer</th><th>Cost</th></tr></thead><tbody id="maintHistory"></tbody></table></div>
+<main>
+<section id="home" class="screen active">
+ <div class="hero-grid">
+  <article class="card vehicle">
+   <div class="vehicle-art audi"><img loading="lazy" src="https://static.cargurus.com/images/site/2018/02/24/12/42/2016_audi_a7_3_0t_quattro_prestige_awd-pic-2046397039413113867-1600x1200.jpeg" alt="Black 2016 Audi A7"></div>
+   <div class="vehicle-body"><div class="vehicle-title"><div><h2>2016 Audi A7</h2><div class="vehicle-sub">Fuel & efficiency</div></div><span class="badge">Owned</span></div>
+   <div class="mini-grid"><div class="mini"><b id="audiEff">—</b><span>L/100 km</span></div><div class="mini"><b id="audiCost">—</b><span>$/100 km</span></div></div>
+   <button class="btn primary block" onclick="show('audi')">Open Audi</button></div>
+  </article>
+  <article class="card vehicle">
+   <div class="vehicle-art vistiq"><img loading="lazy" src="https://media.whichcar.com.au/uploads/2023/12/13b25440-2026-cadillac-vistiq-front.jpg" alt="Blue 2026 Cadillac VISTIQ"></div>
+   <div class="vehicle-body"><div class="vehicle-title"><div><h2>2026 Cadillac VISTIQ</h2><div class="vehicle-sub">Charging & lease</div></div><span class="badge">Leased</span></div>
+   <div class="mini-grid"><div class="mini"><b id="vRemain">85,455</b><span>km remaining</span></div><div class="mini"><b id="vEnergy">0.0</b><span>kWh logged</span></div></div>
+   <button class="btn primary block" onclick="show('vistiq')">Open VISTIQ</button></div>
+  </article>
+ </div>
+
+ <section class="card"><div class="section-head"><h2>Cost summary</h2><span class="stat-label">Tracked so far</span></div>
+  <div class="kpis"><div class="kpi"><b id="sumFuel">$0</b><span>Audi fuel</span></div><div class="kpi"><b id="sumCharge">$0</b><span>VISTIQ charging</span></div><div class="kpi"><b id="sumMaint">$0</b><span>Maintenance</span></div><div class="kpi"><b id="sumTotal">$0</b><span>Garage total</span></div></div>
+ </section>
+
+ <section class="card"><div class="section-head"><h2>Maintenance</h2><button class="btn smallbtn" onclick="focusMaintenance()">Add service</button></div>
+  <div class="kpis"><div class="kpi"><b id="maintTotal">$0</b><span>Total maintenance</span></div><div class="kpi"><b id="maintCount">0</b><span>Services</span></div><div class="kpi"><b id="maintAudi">$0</b><span>Audi</span></div><div class="kpi"><b id="maintVistiq">$0</b><span>VISTIQ</span></div></div>
+  <div class="form" id="maintenanceForm" style="margin-top:13px">
+   <div class="field"><label>Date *</label><input id="mDate" class="input" type="date"><div id="mDateErr" class="error">Choose a date.</div></div>
+   <div class="field"><label>Vehicle</label><select id="mVehicle" class="input"><option>Audi A7</option><option>Cadillac VISTIQ</option></select></div>
+   <div class="field"><label>Service *</label><input id="mType" class="input" placeholder="Oil change"><div id="mTypeErr" class="error">Enter a service.</div></div>
+   <div class="field"><label>Cost *</label><input id="mCost" class="input" type="number" step=".01" placeholder="$"><div id="mCostErr" class="error">Enter a valid cost.</div></div>
+   <div class="field"><label>Odometer</label><input id="mOdo" class="input" type="number" placeholder="km"></div>
+   <button class="btn primary full" onclick="addMaintenance()">Add maintenance</button>
+  </div>
+  <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Date</th><th>Vehicle</th><th>Service</th><th>Odometer</th><th>Cost</th></tr></thead><tbody id="maintHistory"></tbody></table></div>
+ </section>
 </section>
 
+<section id="audi" class="screen">
+ <section class="card"><div class="section-head"><div><div class="stat-big" id="aAvg">—</div><div class="stat-label">Average fuel efficiency · L/100 km</div></div></div>
+  <div class="kpis" style="margin-top:16px"><div class="kpi"><b id="aCost100">—</b><span>$/100 km</span></div><div class="kpi"><b id="aTotalFuel">0 L</b><span>Fuel logged</span></div><div class="kpi"><b id="aTotalSpend">$0</b><span>Fuel spent</span></div><div class="kpi"><b id="aServiceTotal">$0</b><span>Maintenance</span></div></div>
+ </section>
+ <section class="card"><h2>Add fill-up</h2><div class="form">
+  <div class="field"><label>Date *</label><input id="aDate" class="input" type="date"><div id="aDateErr" class="error">Choose a date.</div></div><div class="field"><label>Odometer *</label><input id="aOdo" class="input" type="number" placeholder="km"><div id="aOdoErr" class="error">Enter the odometer.</div></div>
+  <div class="field"><label>Price per litre *</label><input id="aPrice" class="input" type="number" step=".001" placeholder="$ / L"><div id="aPriceErr" class="error">Enter the price per litre.</div></div><div class="field"><label>Total spent *</label><input id="aSpend" class="input" type="number" step=".01" placeholder="$"><div id="aSpendErr" class="error">Enter the total spent.</div></div>
+  <button class="btn primary full" onclick="addFuel()">Add fill-up</button>
+ </div><div class="note">Enter the odometer, price per litre and total spent. Litres, distance, L/100 km and cost/100 km are calculated automatically.</div></section>
+ <section class="card"><h2>Efficiency trend</h2><canvas id="fuelChart" class="chart" width="850" height="220"></canvas></section>
+ <section class="card"><h2>Fill-up history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Odometer</th><th>$/L</th><th>Spent</th><th>Litres</th><th>L/100</th></tr></thead><tbody id="fuelHistory"></tbody></table></div></section>
+</section>
+
+<section id="vistiq" class="screen">
+ <section class="card"><div class="section-head"><div><div class="stat-big" id="vKm">16,392</div><div class="stat-label">Current odometer</div></div><span class="badge">Leased</span></div>
+  <div class="kpis" style="margin-top:16px"><div class="kpi"><b id="vRem">85,455</b><span>km remaining</span></div><div class="kpi"><b id="vKwh100">—</b><span>kWh/100 km</span></div><div class="kpi"><b id="vCost100">—</b><span>$/100 km</span></div><div class="kpi"><b id="vLeasePct">16.1%</b><span>allowance used</span></div></div>
+  <div class="progress" style="margin-top:14px"><div id="vBar" style="width:16.1%"></div></div>
+ </section>
+ <section class="card"><h2>Update mileage</h2><div class="form">
+  <div class="field"><label>Date *</label><input id="vMileageDate" class="input" type="date"><div id="vMileageDateErr" class="error">Choose a date.</div></div>
+  <div class="field"><label>Odometer *</label><input id="vMileageOdo" class="input" type="number" placeholder="km"><div id="vMileageOdoErr" class="error">Enter the odometer.</div></div>
+  <button class="btn primary full" onclick="addMileage()">Save mileage</button>
+ </div><div class="note">Mileage and charging are tracked separately. You can update the odometer whenever you want without recording a charge.</div></section>
+ <section class="card"><h2>Add charging session</h2><div class="form">
+  <div class="field"><label>Date *</label><input id="vDate" class="input" type="date"><div id="vDateErr" class="error">Choose a date.</div></div>
+  <div class="field"><label>Energy added *</label><input id="vKwh" class="input" type="number" step=".1" placeholder="kWh"><div id="vKwhErr" class="error">Enter the energy added.</div></div>
+  <div class="field"><label>Electricity rate</label><input id="vRate" class="input" type="number" step=".001" value=".098" placeholder="$/kWh"></div>
+  <button class="btn primary full" onclick="addCharge()">Add charging session</button>
+ </div><div class="note">Default is home charging at Ontario TOU off-peak. Your saved default rate is $0.098/kWh. You do not need to enter mileage when charging.</div></section>
+ <section class="card"><h2>Charging history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>kWh</th><th>Rate</th><th>Cost</th></tr></thead><tbody id="chargeHistory"></tbody></table></div></section>
+ <section class="card"><h2>Mileage history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Odometer</th><th>Since last</th></tr></thead><tbody id="mileageHistory"></tbody></table></div></section>
+</section>
+</main>
 </div>
 
-<div id="audi" class="view">
-<section class="card"><h2>Audi A7 · Fuel efficiency</h2><div class="metrics"><div class="metric"><b id="aAvg">—</b><span>average L/100 km</span></div><div class="metric"><b id="aCost100">—</b><span>average $/100 km</span></div><div class="metric"><b id="aTotalFuel">0 L</b><span>fuel logged</span></div><div class="metric"><b id="aTotalSpend">$0.00</b><span>fuel spent</span></div></div></section>
-<section class="card"><h2>Add fill-up</h2><div class="form"><input id="aDate" class="input" type="date"><input id="aOdo" class="input" type="number" placeholder="Odometer (km)"><input id="aPrice" class="input" type="number" step=".001" placeholder="Price per litre ($)"><input id="aSpend" class="input" type="number" step=".01" placeholder="Total spent ($)"><button class="primary full" onclick="addFuel()">Add fill-up</button></div><div class="note">Litres, distance, L/100 km and cost/100 km are calculated automatically from the previous fill-up.</div></section>
-<section class="card"><h2>Efficiency trend</h2><canvas id="fuelChart" width="850" height="210"></canvas></section><section class="card"><h2>Fill-up history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Odometer</th><th>$/L</th><th>Spent</th><th>Litres</th><th>L/100</th></tr></thead><tbody id="fuelHistory"></tbody></table></div></section></div>
+<nav class="nav" aria-label="Primary navigation">
+ <button data-nav="home" class="active" onclick="show('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>Garage</button>
+ <button data-nav="audi" onclick="show('audi')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 15h2l2-5h10l2 5h2v4h-2v2h-2v-2H7v2H5v-2H3z"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/></svg>Audi</button>
+ <button data-nav="vistiq" onclick="show('vistiq')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="17" height="12" rx="2"/><path d="M21 10v4M7 12h6M10 9v6"/></svg>VISTIQ</button>
+</nav>
 
-<div id="vistiq" class="view">
-<section class="card"><h2>VISTIQ · Charging & lease</h2><div class="metrics"><div class="metric"><b id="vKm">16,392</b><span>current km</span></div><div class="metric"><b id="vRem">85,455</b><span>km remaining</span></div><div class="metric"><b id="vKwh100">—</b><span>kWh/100 km</span></div><div class="metric"><b id="vCost100">—</b><span>$/100 km</span></div></div><div class="bar"><div class="fill" id="vBar" style="width:16.1%"></div></div><div class="muted" id="vLeaseText" style="margin-top:8px">16.1% of lease allowance used · 85,455 km remaining</div></section>
-<section class="card"><h2>Add charging session</h2><div class="form"><input id="vDate" class="input" type="date"><input id="vOdoInput" class="input" type="number" placeholder="Odometer (km)"><input id="vKwh" class="input" type="number" step=".1" placeholder="kWh added"><input id="vRate" class="input" type="number" step=".001" value=".098" placeholder="Rate $/kWh"><button class="primary full" onclick="addCharge()">Add charging session</button></div><div class="note">Default: home charging at Ontario TOU off-peak, $0.098/kWh. The rate can be overridden for a specific session.</div></section>
-<section class="card"><h2>Charging history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Odometer</th><th>kWh</th><th>Rate</th><th>Cost</th></tr></thead><tbody id="chargeHistory"></tbody></table></div></section></div>
+<div class="modal" id="settingsModal"><div class="sheet"><div class="sheet-head"><h2>Garage settings</h2><button class="iconbtn" onclick="closeSettings()">×</button></div>
+ <div class="form">
+  <div class="field full"><label>VISTIQ total lease allowance</label><input id="sAllowance" class="input" type="number"></div>
+  <div class="field"><label>VISTIQ current mileage</label><input id="sVodo" class="input" type="number"></div>
+  <div class="field"><label>Excess mileage rate</label><input id="sVrate" class="input" type="number" step=".01"></div>
+  <div class="field full"><label>Home off-peak electricity rate</label><input id="sERate" class="input" type="number" step=".001"></div>
+ </div>
+ <div class="note">Your VISTIQ default is Ontario TOU off-peak. You are not using the Ultra-Low Overnight plan.</div>
+ <div style="display:flex;gap:8px;margin-top:14px"><button class="btn" style="flex:1" onclick="closeSettings()">Cancel</button><button class="btn primary" style="flex:1" onclick="saveSettings()">Save</button></div>
+</div></div>
 
-<div id="home" class="view"></div>
-<div class="modal" id="modal"><div class="modalbox"><h2>Garage settings</h2><div class="form"><label class="full">VISTIQ total allowance (km)<input id="sAllowance" class="input" type="number" value="101847"></label><label>VISTIQ current mileage<input id="sVodo" class="input" type="number" value="16392"></label><label>VISTIQ excess rate ($/km)<input id="sVrate" class="input" type="number" step=".01" value=".20"></label><label class="full">Default home off-peak electricity rate ($/kWh)<input id="sERate" class="input" type="number" step=".001" value=".098"></label></div><div class="btnrow"><button class="secondary" onclick="closeSettings()">Cancel</button><button class="primary" onclick="saveSettings()">Save</button></div></div></div>
 <script>
-const KEY='garageDataV1';const initial={settings:{allowance:101847,vodo:16392,vRate:.20,eRate:.098},fuel:[],charge:[],maint:[]};let d=JSON.parse(localStorage.getItem(KEY)||'null')||structuredClone(initial);const money=n=>'$'+Number(n||0).toFixed(2);const date=s=>new Date(s+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});function save(){localStorage.setItem(KEY,JSON.stringify(d))}
-function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById('homeContent').style.display=id==='home'?'block':'none';if(id!=='home')document.getElementById(id).classList.add('active');document.querySelectorAll('[data-nav]').forEach(b=>b.classList.toggle('active',b.dataset.nav===id));window.scrollTo(0,0);render()}
-function render(){let f=[...d.fuel].sort((a,b)=>a.date.localeCompare(b.date)),c=[...d.charge].sort((a,b)=>a.date.localeCompare(b.date));let fs=f.reduce((s,x)=>s+x.spend,0),cs=c.reduce((s,x)=>s+x.cost,0),lit=f.reduce((s,x)=>s+x.litres,0),kwh=c.reduce((s,x)=>s+x.kwh,0),e=f.filter(x=>x.eff),avg=e.length?e.reduce((s,x)=>s+x.eff,0)/e.length:null;let cEff=c.length>1?c[c.length-1].kwh/(c[c.length-1].odo-c[0].odo)*100:null;document.getElementById('audiEff').textContent=avg?avg.toFixed(1):'—';document.getElementById('audiCost').textContent=e.length?money(e.reduce((s,x)=>s+x.cost100,0)/e.length):'—';document.getElementById('aAvg').textContent=avg?avg.toFixed(1):'—';document.getElementById('aCost100').textContent=e.length?money(e.reduce((s,x)=>s+x.cost100,0)/e.length):'—';document.getElementById('aTotalFuel').textContent=lit.toFixed(1)+' L';document.getElementById('aTotalSpend').textContent=money(fs);document.getElementById('vEnergy').textContent=kwh.toFixed(1);document.getElementById('vKm').textContent=d.settings.vodo.toLocaleString();document.getElementById('vRem').textContent=Math.max(0,d.settings.allowance-d.settings.vodo).toLocaleString();document.getElementById('vRemain').textContent=Math.max(0,d.settings.allowance-d.settings.vodo).toLocaleString();document.getElementById('vKwh100').textContent=cEff?cEff.toFixed(1):'—';document.getElementById('vCost100').textContent=cEff?money(cEff*d.settings.eRate):'—';document.getElementById('vBar').style.width=Math.min(100,d.settings.vodo/d.settings.allowance*100)+'%';document.getElementById('vLeaseText').textContent=(d.settings.vodo/d.settings.allowance*100).toFixed(1)+'% of lease allowance used · '+Math.max(0,d.settings.allowance-d.settings.vodo).toLocaleString()+' km remaining';document.getElementById('sumFuel').textContent=money(fs);document.getElementById('sumCharge').textContent=money(cs);let m=d.maint.reduce((s,x)=>s+x.cost,0),ma=d.maint.filter(x=>x.vehicle==='Audi A7').reduce((s,x)=>s+x.cost,0),mv=d.maint.filter(x=>x.vehicle==='Cadillac VISTIQ').reduce((s,x)=>s+x.cost,0);document.getElementById('sumMaint').textContent=money(m);document.getElementById('sumTotal').textContent=money(fs+cs+m);document.getElementById('maintTotal').textContent=money(m);document.getElementById('maintCount').textContent=d.maint.length;document.getElementById('maintAudi').textContent=money(ma);document.getElementById('maintVistiq').textContent=money(mv);document.getElementById('maintHistory').innerHTML=[...d.maint].sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr><td>${date(x.date)}</td><td>${x.vehicle}</td><td>${x.type}</td><td>${x.odo?x.odo.toLocaleString():'—'}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="5">No maintenance logged yet.</td></tr>';fuelHistory.innerHTML=f.slice().reverse().map(x=>`<tr><td>${date(x.date)}</td><td>${x.odo.toLocaleString()}</td><td>${money(x.price)}</td><td>${money(x.spend)}</td><td>${x.litres.toFixed(1)}</td><td>${x.eff?x.eff.toFixed(1):'—'}</td></tr>`).join('')||'<tr><td colspan="6">No fill-ups yet.</td></tr>';chargeHistory.innerHTML=c.slice().reverse().map(x=>`<tr><td>${date(x.date)}</td><td>${x.odo.toLocaleString()}</td><td>${x.kwh.toFixed(1)}</td><td>${money(x.rate)}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="5">No charging sessions yet.</td></tr>';draw(f)}
-function addFuel(){let date=aDate.value,odo=+aOdo.value,price=+aPrice.value,spend=+aSpend.value;if(!date||!odo||!price||!spend)return alert('Enter date, odometer, price per litre and total spent.');let f=[...d.fuel].sort((a,b)=>a.odo-b.odo),prev=f.filter(x=>x.odo<odo).pop(),litres=spend/price,dist=prev?odo-prev.odo:0;d.fuel.push({date,odo,price,spend,litres,eff:dist?litres/dist*100:null,cost100:dist?spend/dist*100:null});save();aOdo.value='';aSpend.value='';render()}
-function addCharge(){let date=vDate.value,odo=+vOdoInput.value,kwh=+vKwh.value,rate=+vRate.value||d.settings.eRate;if(!date||!odo||!kwh)return alert('Enter date, odometer and kWh added.');d.charge.push({date,odo,kwh,rate,cost:kwh*rate});d.settings.vodo=odo;save();vOdoInput.value='';vKwh.value='';render()}
-function addMaintenance(){let date=mDate.value,vehicle=mVehicle.value,type=mType.value.trim(),cost=+mCost.value,odo=+mOdo.value||0;if(!date||!type||!cost)return alert('Enter date, service and cost.');d.maint.push({date,vehicle,type,cost,odo});save();mType.value='';mCost.value='';mOdo.value='';render()}function draw(f){let c=document.getElementById('fuelChart'),x=c.getContext('2d'),w=c.width,h=c.height;x.clearRect(0,0,w,h);let q=f.filter(z=>z.eff);if(!q.length){x.fillStyle='#6b7280';x.font='14px system-ui';x.fillText('Add at least two fill-ups to see your efficiency trend.',20,30);return}let vals=q.map(z=>z.eff),mx=Math.max(...vals)*1.1,mn=Math.min(...vals)*.9;x.strokeStyle='#111827';x.lineWidth=3;x.beginPath();q.forEach((z,i)=>{let px=q.length===1?w/2:i/(q.length-1)*w,py=h-(z.eff-mn)/(mx-mn)*h;i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke();q.forEach((z,i)=>{let px=q.length===1?w/2:i/(q.length-1)*w,py=h-(z.eff-mn)/(mx-mn)*h;x.fillStyle='#111827';x.beginPath();x.arc(px,py,5,0,7);x.fill()})}
-function applyTheme(){let dark=localStorage.getItem('garageTheme')==='dark';document.documentElement.classList.toggle('dark',dark);document.getElementById('themeBtn').innerHTML=dark?'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.8 6.8 0 0 0 9.8 9.8Z"/></svg>':'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>'}function toggleTheme(){localStorage.setItem('garageTheme',document.documentElement.classList.contains('dark')?'light':'dark');applyTheme()}function openSettings(){sAllowance.value=d.settings.allowance;sVodo.value=d.settings.vodo;sVrate.value=d.settings.vRate;sERate.value=d.settings.eRate;modal.classList.add('show')}function closeSettings(){modal.classList.remove('show')}function saveSettings(){d.settings.allowance=+sAllowance.value;d.settings.vodo=+sVodo.value;d.settings.vRate=+sVrate.value;d.settings.eRate=+sERate.value;save();closeSettings();render()}
-aDate.value=vDate.value=mDate.value=new Date().toISOString().slice(0,10);applyTheme();render();
-</script></main></body></html>
+const KEY='garageDataV1';
+const initial={settings:{allowance:101847,vodo:16392,vRate:.20,eRate:.098},fuel:[],charge:[],maint:[]};
+let d=JSON.parse(localStorage.getItem(KEY)||'null')||structuredClone(initial);
+d.settings={...initial.settings,...(d.settings||{})};d.fuel=d.fuel||[];d.charge=d.charge||[];d.maint=d.maint||[];d.mileage=d.mileage||[];
+if(!d.mileage.length && d.settings.vodo)d.mileage=[{date:'2026-08-27',odo:d.settings.vodo}];
+const money=n=>'$'+Number(n||0).toFixed(2);
+const fmt=n=>Number(n||0).toLocaleString(undefined,{maximumFractionDigits:1});
+const dateFmt=s=>new Date(s+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+function save(){localStorage.setItem(KEY,JSON.stringify(d))}
+function today(){return new Date().toISOString().slice(0,10)}
+function show(id){
+ document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+ document.getElementById(id).classList.add('active');
+ document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.nav===id));
+ window.scrollTo({top:0,behavior:'smooth'});render();
+}
+function toggleTheme(){
+ const dark=!document.documentElement.classList.contains('dark');
+ document.documentElement.classList.toggle('dark',dark);localStorage.setItem('garageTheme',dark?'dark':'light');updateThemeIcon();
+}
+function updateThemeIcon(){
+ const dark=document.documentElement.classList.contains('dark');
+ themeBtn.innerHTML=dark?'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>':'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.7 6.7 0 0 0 9.8 9.8Z"/></svg>';
+}
+function render(){
+ const f=[...d.fuel].sort((a,b)=>a.date.localeCompare(b.date));
+ const c=[...d.charge].sort((a,b)=>a.date.localeCompare(b.date));
+ const fs=f.reduce((s,x)=>s+x.spend,0),cs=c.reduce((s,x)=>s+x.cost,0);
+ const mt=d.maint.reduce((s,x)=>s+x.cost,0);
+ const eff=f.filter(x=>x.eff),avg=eff.length?eff.reduce((s,x)=>s+x.eff,0)/eff.length:null;
+ const avgCost=eff.length?eff.reduce((s,x)=>s+x.cost100,0)/eff.length:null;
+ const totalFuel=f.reduce((s,x)=>s+x.litres,0);
+ const miles=[...d.mileage].sort((a,b)=>a.date.localeCompare(b.date));
+ const totalKwh=c.reduce((s,x)=>s+x.kwh,0);
+ const dist=miles.length>1?miles[miles.length-1].odo-miles[0].odo:0;
+ const cEff=dist>0?(totalKwh/dist)*100:null;
+ const ma=d.maint.filter(x=>x.vehicle==='Audi A7').reduce((s,x)=>s+x.cost,0);
+ const mv=d.maint.filter(x=>x.vehicle==='Cadillac VISTIQ').reduce((s,x)=>s+x.cost,0);
+ const pct=d.settings.vodo/d.settings.allowance*100;
+ audiEff.textContent=avg?avg.toFixed(1):'—';audiCost.textContent=avgCost?money(avgCost):'—';
+ aAvg.textContent=avg?avg.toFixed(1):'—';aCost100.textContent=avgCost?money(avgCost):'—';
+ aTotalFuel.textContent=totalFuel.toFixed(1)+' L';aTotalSpend.textContent=money(fs);aServiceTotal.textContent=money(ma);
+ const currentOdo=miles.length?miles[miles.length-1].odo:d.settings.vodo;
+ d.settings.vodo=currentOdo;
+ vRemain.textContent=fmt(Math.max(0,d.settings.allowance-currentOdo));vEnergy.textContent=totalKwh.toFixed(1);
+ vKm.textContent=fmt(currentOdo);vRem.textContent=fmt(Math.max(0,d.settings.allowance-currentOdo));
+ const currentPct=currentOdo/d.settings.allowance*100;
+ vKwh100.textContent=cEff?cEff.toFixed(1):'—';vCost100.textContent=cEff?money(cEff*d.settings.eRate):'—';vLeasePct.textContent=currentPct.toFixed(1)+'%';vBar.style.width=Math.min(100,currentPct)+'%';
+ sumFuel.textContent=money(fs);sumCharge.textContent=money(cs);sumMaint.textContent=money(mt);sumTotal.textContent=money(fs+cs+mt);
+ maintTotal.textContent=money(mt);maintCount.textContent=d.maint.length;maintAudi.textContent=money(ma);maintVistiq.textContent=money(mv);
+ fuelHistory.innerHTML=f.slice().reverse().map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${fmt(x.odo)}</td><td>${money(x.price)}</td><td>${money(x.spend)}</td><td>${x.litres.toFixed(1)}</td><td>${x.eff?x.eff.toFixed(1):'—'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">No fill-ups logged yet.</td></tr>';
+ chargeHistory.innerHTML=c.slice().reverse().map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.kwh.toFixed(1)}</td><td>${money(x.rate)}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No charging sessions logged yet.</td></tr>';
+ const mh=miles.slice().reverse();
+ mileageHistory.innerHTML=mh.map((x,i)=>{const newer=mh[i-1];const since=newer?x.odo-newer.odo:0;return `<tr><td>${dateFmt(x.date)}</td><td>${fmt(x.odo)}</td><td>${since>0?fmt(since)+' km':'—'}</td></tr>`}).join('')||'<tr><td colspan="3" class="empty">No mileage readings logged yet.</td></tr>';
+ maintHistory.innerHTML=[...d.maint].sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.vehicle}</td><td>${x.type}</td><td>${x.odo?fmt(x.odo):'—'}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No maintenance logged yet.</td></tr>';
+ drawFuel(f);
+}
+function setErr(id,bad,msg){
+ const el=document.getElementById(id),err=document.getElementById(id+'Err');
+ if(!el||!err)return;
+ el.classList.toggle('invalid',bad);err.textContent=msg;err.classList.toggle('show',bad);
+}
+function toast(msg){toastEl.textContent=msg;toastEl.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>toastEl.classList.remove('show'),2200)}
+const toastEl=document.getElementById('toast');
+function addFuel(){
+ const date=aDate.value,odo=+aOdo.value,price=+aPrice.value,spend=+aSpend.value;
+ setErr('aDate',!date,'Choose a date.');setErr('aOdo',!odo,'Enter the odometer.');setErr('aPrice',!price,'Enter the price per litre.');setErr('aSpend',!spend,'Enter the total spent.');
+ if(!date||!odo||!price||!spend)return;
+ const sorted=[...d.fuel].sort((a,b)=>a.odo-b.odo),prev=sorted.filter(x=>x.odo<odo).pop();
+ if(prev&&odo<=prev.odo){setErr('aOdo',true,'Odometer must be higher than the previous reading.');return}
+ const litres=spend/price,dist=prev?odo-prev.odo:0;
+ d.fuel.push({date,odo,price,spend,litres,eff:dist?litres/dist*100:null,cost100:dist?spend/dist*100:null});
+ save();aOdo.value='';aSpend.value='';render();toast('Fuel fill-up added');
+}
+function addMileage(){
+ const date=vMileageDate.value,odo=+vMileageOdo.value;
+ setErr('vMileageDate',!date,'Choose a date.');setErr('vMileageOdo',!odo,'Enter the odometer.');
+ if(!date||!odo)return;
+ const latest=[...d.mileage].sort((a,b)=>b.odo-a.odo)[0];
+ if(latest&&odo<latest.odo){setErr('vMileageOdo',true,'Odometer cannot be lower than the last reading.');return}
+ d.mileage.push({date,odo});d.settings.vodo=odo;save();vMileageOdo.value='';render();toast('Mileage updated');
+}
+function addCharge(){
+ const date=vDate.value,kwh=+vKwh.value,rate=+vRate.value||d.settings.eRate;
+ setErr('vDate',!date,'Choose a date.');setErr('vKwh',!kwh,'Enter the energy added.');
+ if(!date||!kwh)return;
+ d.charge.push({date,kwh,rate,cost:kwh*rate});save();vKwh.value='';render();toast('Charging session added');
+}
+function addMaintenance(){
+ const date=mDate.value,vehicle=mVehicle.value,type=mType.value.trim(),cost=+mCost.value,odo=+mOdo.value||0;
+ setErr('mDate',!date,'Choose a date.');setErr('mType',!type,'Enter a service.');setErr('mCost',!cost,'Enter a valid cost.');
+ if(!date||!type||!cost)return;
+ d.maint.push({date,vehicle,type,cost,odo});save();mType.value='';mCost.value='';mOdo.value='';render();toast('Maintenance added');
+}
+function focusMaintenance(){document.getElementById('maintenanceForm').scrollIntoView({behavior:'smooth',block:'center'});mType.focus()}
+function drawFuel(f){
+ const c=document.getElementById('fuelChart'),x=c.getContext('2d'),w=c.width,h=c.height;x.clearRect(0,0,w,h);
+ const q=f.filter(z=>z.eff);if(!q.length){x.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--muted');x.font='14px system-ui';x.fillText('Add two or more fill-ups to see your efficiency trend.',20,32);return}
+ const vals=q.map(z=>z.eff),mx=Math.max(...vals)*1.1,mn=Math.min(...vals)*.9;
+ x.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--line');x.lineWidth=1;
+ for(let i=1;i<4;i++){let y=i*h/4;x.beginPath();x.moveTo(0,y);x.lineTo(w,y);x.stroke()}
+ x.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--blue');x.lineWidth=3;x.beginPath();
+ q.forEach((z,i)=>{let px=q.length===1?w/2:i/(q.length-1)*w,py=h-(z.eff-mn)/(mx-mn)*h;i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke();
+ q.forEach((z,i)=>{let px=q.length===1?w/2:i/(q.length-1)*w,py=h-(z.eff-mn)/(mx-mn)*h;x.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--blue');x.beginPath();x.arc(px,py,5,0,Math.PI*2);x.fill()});
+}
+function openSettings(){sAllowance.value=d.settings.allowance;sVodo.value=(d.mileage.length?[...d.mileage].sort((a,b)=>b.date.localeCompare(a.date))[0].odo:d.settings.vodo);sVrate.value=d.settings.vRate;sERate.value=d.settings.eRate;settingsModal.classList.add('show')}
+function closeSettings(){settingsModal.classList.remove('show')}
+function saveSettings(){d.settings.allowance=+sAllowance.value;d.settings.vodo=+sVodo.value;d.settings.vRate=+sVrate.value;d.settings.eRate=+sERate.value;
+ const last=d.mileage.length?[...d.mileage].sort((a,b)=>b.date.localeCompare(a.date))[0]:null;
+ if(!last||last.odo!==d.settings.vodo)d.mileage.push({date:today(),odo:d.settings.vodo});
+ save();closeSettings();render()}
+if(localStorage.getItem('garageTheme')!=='light')document.documentElement.classList.add('dark');
+updateThemeIcon();
+aDate.value=vDate.value=mDate.value=vMileageDate.value=today();render();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+<div id="toast" class="toast" role="status"></div></body>
+</html>
