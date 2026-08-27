@@ -30,23 +30,23 @@ button{cursor:pointer}
 .screen{display:none}.screen.active{display:block}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;margin-bottom:14px}
 .card h2{font-size:18px;margin:0 0 13px;letter-spacing:-.2px}
-.hero-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .vehicle{padding:0;overflow:hidden}
-.vehicle-art{height:145px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#111827;position:relative}.vehicle-art img{width:100%;height:100%;object-fit:contain;display:block}.vehicle-art.audi:after,.vehicle-art.vistiq:after{display:none}
+.vehicle-art{height:220px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#111827;position:relative}.vehicle-art img{width:100%;height:100%;object-fit:contain;display:block}.vehicle-art.audi:after,.vehicle-art.vistiq:after{display:none}
 .vehicle-art.audi{background:linear-gradient(135deg,#111318,#353a42)}
 .vehicle-art.vistiq{background:linear-gradient(135deg,#dce9ef,#8faaba)}
 .vehicle-art svg{width:86%;height:86%}
-.vehicle-body{padding:14px}
+.vehicle-body{padding:17px}
 .vehicle-title{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
-.vehicle-title h2{margin:0;font-size:17px;line-height:1.2}
+.vehicle-title h2{margin:0;font-size:20px}
 .badge{white-space:nowrap;border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:11px;font-weight:750}
-.vehicle-sub{color:var(--muted);font-size:12px;margin:4px 0 10px}
+.vehicle-sub{color:var(--muted);font-size:13px;margin:5px 0 14px}
 .mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.mini{background:var(--surface2);border-radius:12px;padding:9px}
-.mini b{display:block;font-size:16px}.mini span{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.mini{background:var(--surface2);border-radius:13px;padding:11px}
+.mini b{display:block;font-size:18px}.mini span{display:block;color:var(--muted);font-size:11px;margin-top:2px}
 .btn{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:11px;padding:11px 14px;font-weight:750}
 .btn.primary{background:var(--accent);color:var(--accentText);border-color:var(--accent)}
-.btn.block{width:100%;margin-top:10px;padding:10px 8px}
+.btn.block{width:100%;margin-top:12px}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .kpi{background:var(--surface2);border-radius:13px;padding:12px}
 .kpi b{display:block;font-size:19px}.kpi span{color:var(--muted);font-size:11px}
@@ -78,8 +78,8 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:flex-end;justify-content:center;z-index:100;padding:12px}
 .modal.show{display:flex}.sheet{width:min(520px,100%);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px}
 .sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.sheet h2{margin:0}
-@media(max-width:680px){.app{padding:15px 12px 92px}.hero-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.vehicle-art{height:125px}.vehicle-body{padding:12px}.vehicle-title h2{font-size:15px}.vehicle-sub{font-size:11px}.badge{font-size:10px;padding:4px 7px}.mini-grid{gap:6px}.mini{padding:8px}.mini b{font-size:14px}.mini span{font-size:10px}.btn.block{font-size:12px;padding:9px 5px}.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr 1fr}.brand h1{font-size:25px}}
-@media(max-width:420px){.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr}.full{grid-column:auto}.vehicle-title{display:block}.badge{display:inline-block;margin-top:6px}.vehicle-art{height:112px}.vehicle-title h2{font-size:14px}.vehicle-sub{font-size:10px}.mini b{font-size:13px}.mini span{font-size:9px}.btn.block{font-size:11px}}
+@media(max-width:680px){.app{padding:15px 10px 92px}.hero-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.vehicle-art{height:115px}.vehicle-body{padding:11px}.vehicle-title h2{font-size:14px;line-height:1.15}.vehicle-sub{font-size:10px;margin:4px 0 9px}.badge{font-size:9px;padding:4px 6px}.mini-grid{gap:5px}.mini{padding:8px}.mini b{font-size:14px}.mini span{font-size:9px}.vehicle .btn{font-size:11px;padding:9px 5px;margin-top:8px}.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr 1fr}.brand h1{font-size:25px}}
+@media(max-width:420px){.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr}.full{grid-column:auto}.vehicle-title{display:block}.badge{display:inline-block;margin-top:5px}.vehicle-art{height:105px}.vehicle-body{padding:9px}.vehicle-title h2{font-size:13px}.vehicle-sub{font-size:9px}.mini{padding:7px}.mini b{font-size:13px}.mini span{font-size:8px}.vehicle .btn{font-size:10px;padding:8px 3px}}
 </style>
 </head>
 <body>
