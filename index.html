@@ -32,7 +32,7 @@ button{cursor:pointer}
 .card h2{font-size:18px;margin:0 0 13px;letter-spacing:-.2px}
 .hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .vehicle{padding:0;overflow:hidden}
-.vehicle-art{height:220px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#111827;position:relative}.vehicle-art img{width:100%;height:100%;object-fit:cover;display:block}.vehicle-art.audi:after,.vehicle-art.vistiq:after{display:none}
+.vehicle-art{height:220px;cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#111827;position:relative}.vehicle-art img{width:100%;height:100%;object-fit:cover;display:block}.vehicle-art.audi:after,.vehicle-art.vistiq:after{display:none}
 .vehicle-art.audi{background:linear-gradient(135deg,#111318,#353a42)}
 .vehicle-art.vistiq{background:linear-gradient(135deg,#dce9ef,#8faaba)}
 .vehicle-art svg{width:86%;height:86%}
@@ -75,8 +75,8 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
 .stat-big{font-size:34px;font-weight:850;letter-spacing:-1px}
 .stat-label{font-size:12px;color:var(--muted)}
 .chart{width:100%;height:220px;display:block}
-.chart-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.chart-card{border:1px solid var(--line);background:var(--surface2);border-radius:14px;padding:12px}.chart-title{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px}.chart-title strong{font-size:14px}.chart-title span{font-size:11px;color:var(--muted)}
-@media(max-width:680px){.chart-grid{grid-template-columns:1fr}.garage-insights .chart{height:190px}.lease-grid{grid-template-columns:1fr 1fr}.whatif{grid-template-columns:1fr}.whatif .btn{width:100%}}
+.chart-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.insight-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}.chart-card{border:1px solid var(--line);background:var(--surface2);border-radius:14px;padding:12px}.chart-title{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px}.chart-title strong{font-size:14px}.chart-title span{font-size:11px;color:var(--muted)}
+@media(max-width:680px){.chart-grid{grid-template-columns:1fr}.insight-kpis{grid-template-columns:1fr 1fr}.garage-insights .chart{height:190px}.lease-grid{grid-template-columns:1fr 1fr}.whatif{grid-template-columns:1fr}.whatif .btn{width:100%}}
 .empty{color:var(--muted);font-size:13px;padding:10px 0}
 .nav{
  position:fixed;z-index:50;left:50%;bottom:12px;transform:translateX(-50%);
@@ -110,13 +110,13 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
 <section id="home" class="screen active">
  <div class="hero-grid">
   <article class="card vehicle">
-   <div class="vehicle-art audi"><img loading="lazy" src="https://static.cargurus.com/images/site/2018/02/24/12/42/2016_audi_a7_3_0t_quattro_prestige_awd-pic-2046397039413113867-1600x1200.jpeg" alt="Black 2016 Audi A7"></div>
+   <div class="vehicle-art audi" role="button" tabindex="0" title="Open Audi details" onclick="show('audi')" onkeydown="if(event.key==='Enter'||event.key===' ')show('audi')"><img loading="lazy" src="https://static.cargurus.com/images/site/2018/02/24/12/42/2016_audi_a7_3_0t_quattro_prestige_awd-pic-2046397039413113867-1600x1200.jpeg" alt="Black 2016 Audi A7"></div>
    <div class="vehicle-body"><div class="vehicle-title"><div><h2>2016 Audi A7</h2><div class="vehicle-sub">Fuel & efficiency</div></div><span class="badge">Owned</span></div>
    <div class="mini-grid"><div class="mini"><b id="audiEff">—</b><span>L/100 km</span></div><div class="mini"><b id="audiCost">—</b><span>$/100 km</span></div></div>
    <div class="quick-actions"><button class="btn primary quick-icon" title="Open Audi" aria-label="Open Audi" onclick="show('audi')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17h14M6 17l1-6h10l1 6M8 11l1.5-3h5L16 11M5 17v2m14-2v2M4 14h16"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/></svg></button><button class="btn quick-icon" title="Add Audi fuel" aria-label="Add Audi fuel" onclick="openQuickFuel()"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M6 10h11M17 7h2l2 2v8a2 2 0 0 1-2 2h-1M9 6h4"/></svg></button></div></div>
   </article>
   <article class="card vehicle">
-   <div class="vehicle-art vistiq"><img loading="lazy" src="https://media.whichcar.com.au/uploads/2023/12/13b25440-2026-cadillac-vistiq-front.jpg" alt="Blue 2026 Cadillac VISTIQ"></div>
+   <div class="vehicle-art vistiq" role="button" tabindex="0" title="Open VISTIQ details" onclick="show('vistiq')" onkeydown="if(event.key==='Enter'||event.key===' ')show('vistiq')"><img loading="lazy" src="https://media.whichcar.com.au/uploads/2023/12/13b25440-2026-cadillac-vistiq-front.jpg" alt="Blue 2026 Cadillac VISTIQ"></div>
    <div class="vehicle-body"><div class="vehicle-title"><div><h2>2026 Cadillac VISTIQ</h2><div class="vehicle-sub">Charging & lease</div></div><span class="badge">Leased</span></div>
    <div class="mini-grid"><div class="mini"><b id="vRemain">85,455</b><span>km remaining</span></div><div class="mini"><b id="vEnergy">0.0</b><span>kWh logged</span></div></div>
    <div class="quick-actions"><button class="btn primary quick-icon" title="Open VISTIQ" aria-label="Open VISTIQ" onclick="show('vistiq')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17h14M6 17l1-6h10l1 6M8 11l1.5-3h5L16 11M5 17v2m14-2v2M4 14h16"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/></svg></button><button class="btn quick-icon" title="Add VISTIQ charge" aria-label="Add VISTIQ charge" onclick="openQuickCharge()"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg></button></div></div>
@@ -150,8 +150,18 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
 
  <section class="card garage-insights">
   <div class="section-head"><div><h2>Garage insights</h2><span class="stat-label">Trends from your logged data</span></div></div>
+
+  <div class="insight-kpis">
+   <div class="kpi"><b id="metricAudiYtd">0 km</b><span>Audi driven this year</span></div>
+   <div class="kpi"><b id="metricVistiqYtd">0 km</b><span>VISTIQ driven this year</span></div>
+   <div class="kpi"><b id="metricGarageYtd">0 km</b><span>Garage km this year</span></div>
+   <div class="kpi"><b id="metricAvgMonth">0 km</b><span>Average km/month</span></div>
+   <div class="kpi"><b id="metricFuelSpend">$0</b><span>Audi fuel spend</span></div>
+   <div class="kpi"><b id="metricTotalSpend">$0</b><span>Total spend this year</span></div>
+  </div>
   <div class="chart-grid">
    <div class="chart-card"><div class="chart-title"><strong>VISTIQ mileage per month</strong><span>km driven</span></div><canvas id="garageMileageChart" class="chart" width="850" height="220"></canvas></div>
+   <div class="chart-card"><div class="chart-title"><strong>Audi mileage per month</strong><span>km driven</span></div><canvas id="garageAudiMileageChart" class="chart" width="850" height="220"></canvas></div>
    <div class="chart-card"><div class="chart-title"><strong>Monthly garage spending</strong><span>fuel, charging & maintenance</span></div><canvas id="garageSpendChart" class="chart" width="850" height="220"></canvas></div>
    <div class="chart-card"><div class="chart-title"><strong>Audi fuel efficiency</strong><span>L/100 km</span></div><canvas id="garageEfficiencyChart" class="chart" width="850" height="220"></canvas></div>
   </div>
@@ -497,6 +507,19 @@ function render(){
  const dist=miles.length>1?miles[miles.length-1].odo-miles[0].odo:0;
  const cEff=dist>0?(totalKwh/dist)*100:null;
  const ma=d.maint.filter(x=>x.vehicle==='Audi A7').reduce((s,x)=>s+x.cost,0);
+ const year=String(new Date().getFullYear());
+ const audiYtd=ytdAudiMileage(f),vistiqYtd=ytdMileageFromReadings(miles),garageYtd=audiYtd+vistiqYtd;
+ const monthsElapsed=new Date().getMonth()+1;
+ metricAudiYtd.textContent=fmt(audiYtd)+' km';
+ metricVistiqYtd.textContent=fmt(vistiqYtd)+' km';
+ metricGarageYtd.textContent=fmt(garageYtd)+' km';
+ metricAvgMonth.textContent=fmt(garageYtd/Math.max(1,monthsElapsed))+' km';
+ metricFuelSpend.textContent=money(f.filter(x=>x.date.slice(0,4)===year).reduce((s,x)=>s+x.spend,0));
+ metricTotalSpend.textContent=money(
+  f.filter(x=>x.date.slice(0,4)===year).reduce((s,x)=>s+x.spend,0)+
+  c.filter(x=>x.date.slice(0,4)===year).reduce((s,x)=>s+x.cost,0)+
+  d.maint.filter(x=>x.date.slice(0,4)===year).reduce((s,x)=>s+x.cost,0)
+ );
  const mv=d.maint.filter(x=>x.vehicle==='Cadillac VISTIQ').reduce((s,x)=>s+x.cost,0);
  const pct=d.settings.vodo/d.settings.allowance*100;
  audiEff.textContent=avg?avg.toFixed(1):'—';audiCost.textContent=avgCost?money(avgCost):'—';
@@ -594,12 +617,43 @@ function drawLineChart(id,rows,valueKey,empty){
  rows.forEach((r,i)=>{const px=p.l+(rows.length===1?iw/2:i/(rows.length-1)*iw),py=p.t+ih-(r[valueKey]-mn)/range*ih;i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke();
  rows.forEach((r,i)=>{const px=p.l+(rows.length===1?iw/2:i/(rows.length-1)*iw),py=p.t+ih-(r[valueKey]-mn)/range*ih;x.fillStyle=t.blue;x.beginPath();x.arc(px,py,3.5,0,Math.PI*2);x.fill()});
 }
+function audiMileageByMonth(f){
+ const sorted=[...f].sort((a,b)=>a.date.localeCompare(b.date)||a.odo-b.odo),by={};
+ for(let i=1;i<sorted.length;i++){
+  const dist=+sorted[i].odo-+sorted[i-1].odo;
+  if(dist>=0){const k=monthKey(sorted[i].date);by[k]=(by[k]||0)+dist}
+ }
+ return by;
+}
+function ytdMileageFromReadings(readings){
+ const year=new Date().getFullYear(),sorted=[...readings].sort((a,b)=>a.date.localeCompare(b.date));
+ const inYear=sorted.filter(x=>x.date.slice(0,4)===String(year));
+ if(!inYear.length)return 0;
+ const before=sorted.filter(x=>x.date.slice(0,4)<String(year)).pop();
+ const startOdo=before?+before.odo:+inYear[0].odo;
+ return Math.max(0,+inYear[inYear.length-1].odo-startOdo);
+}
+function ytdAudiMileage(f){
+ const year=new Date().getFullYear(),sorted=[...f].sort((a,b)=>a.date.localeCompare(b.date)||a.odo-b.odo);
+ const inYear=sorted.filter(x=>x.date.slice(0,4)===String(year));
+ if(!inYear.length)return 0;
+ const before=sorted.filter(x=>x.date.slice(0,4)<String(year)).pop();
+ const startOdo=before?+before.odo:+inYear[0].odo;
+ return Math.max(0,+inYear[inYear.length-1].odo-startOdo);
+}
+
 function drawMileageChart(miles){
  const sorted=[...miles].sort((a,b)=>a.date.localeCompare(b.date)),by={};
  for(let i=1;i<sorted.length;i++){const dist=sorted[i].odo-sorted[i-1].odo;if(dist>=0){const k=monthKey(sorted[i].date);by[k]=(by[k]||0)+dist}}
  const keys=lastMonths(8).filter(k=>by[k]!=null);
  drawLineChart('garageMileageChart',keys.map(k=>({label:monthLabel(k),km:by[k]})),'km','Add more VISTIQ mileage readings to see monthly driving.');
 }
+function drawAudiMileageChart(f){
+ const by=audiMileageByMonth(f);
+ const keys=lastMonths(8).filter(k=>by[k]!=null);
+ drawLineChart('garageAudiMileageChart',keys.map(k=>({label:monthLabel(k),km:by[k]})),'km','Add more Audi fill-ups to see monthly driving.');
+}
+
 function drawSpendChart(f,c,maint){
  const keys=lastMonths(8),rows=keys.map(k=>({label:monthLabel(k),fuel:0,charge:0,maint:0}));
  const map=Object.fromEntries(rows.map(r=>[r.label,r]));
@@ -619,7 +673,7 @@ function drawEfficiencyChart(f){
  const rows=f.filter(x=>x.eff).slice(-8).map(x=>({label:monthLabel(monthKey(x.date)),eff:x.eff}));
  drawLineChart('garageEfficiencyChart',rows,'eff','Add two or more Audi fill-ups to see efficiency.');
 }
-function drawGarageCharts(f,c,maint,miles){drawMileageChart(miles);drawSpendChart(f,c,maint);drawEfficiencyChart(f)}
+function drawGarageCharts(f,c,maint,miles){drawMileageChart(miles);drawAudiMileageChart(f);drawSpendChart(f,c,maint);drawEfficiencyChart(f)}
 function drawFuel(f){
  const c=document.getElementById('fuelChart'),x=c.getContext('2d'),w=c.width,h=c.height;x.clearRect(0,0,w,h);
  const q=f.filter(z=>z.eff);if(!q.length){x.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--muted');x.font='14px system-ui';x.fillText('Add two or more fill-ups to see your efficiency trend.',20,32);return}
