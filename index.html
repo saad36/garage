@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="./manifest.webmanifest">
 <title>My Garage</title>
+<meta name="garage-version" content="24">
 <style>
 :root{
  --bg:#f4f6f8;--surface:#fff;--surface2:#f8fafc;--text:#0f172a;--muted:#64748b;
@@ -52,7 +53,7 @@ button{cursor:pointer}
 .cost-vehicle-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .cost-vehicle-head div{display:flex;align-items:baseline;gap:7px;min-width:0}
 .cost-vehicle-head strong{font-size:14px}.cost-vehicle-head span{font-size:10px;color:var(--muted)}
-.cost-vehicle-head>b{font-size:18px;white-space:nowrap}.add-vehicle-card{border:1px dashed var(--line);background:transparent;display:grid;place-items:center;min-height:120px}.add-vehicle-card button{width:100%;height:100%;min-height:120px;background:transparent;border:0;color:var(--muted);font-weight:800}.add-vehicle-card button:hover{color:var(--text)}.add-vehicle-card .plus{font-size:28px;display:block;line-height:1;margin-bottom:6px}.vehicle-image-placeholder{display:grid;place-items:center;height:100%;color:var(--muted);font-size:12px;font-weight:700}.manage-actions{display:flex;gap:8px;margin-top:14px}.manage-actions .btn{flex:1}.quick-actions{display:grid;grid-template-columns:minmax(0,1fr) 52px;gap:10px;margin-top:10px;width:100%}.quick-actions .quick-icon{height:44px;min-width:0;border-radius:11px;display:grid;place-items:center;padding:0}.quick-actions .quick-icon .icon{width:19px;height:19px}.lease-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.lease-box{background:var(--surface2);border-radius:13px;padding:12px}.lease-box b{display:block;font-size:19px}.lease-box span{display:block;color:var(--muted);font-size:10px;margin-top:2px}.lease-callout{margin-top:12px;border:1px solid var(--line);border-radius:14px;padding:13px;background:var(--surface2)}.lease-callout strong{font-size:15px}.lease-callout p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.4}.whatif{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end;margin-top:12px}.whatif-presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.whatif-presets button{padding:7px 9px;font-size:11px}.lease-result{margin-top:10px;padding:12px;border-radius:12px;background:var(--surface)}.lease-result b{font-size:18px}.lease-result span{display:block;color:var(--muted);font-size:11px;margin-top:2px}.custom-detail{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:11px;font-weight:750;color:var(--muted)}
+.cost-vehicle-head>b{font-size:18px;white-space:nowrap}.add-vehicle-card{border:1px dashed var(--line);background:transparent;display:grid;place-items:center;min-height:120px}.add-vehicle-card button{width:100%;height:100%;min-height:120px;background:transparent;border:0;color:var(--muted);font-weight:800}.add-vehicle-card button:hover{color:var(--text)}.add-vehicle-card .plus{font-size:28px;display:block;line-height:1;margin-bottom:6px}.vehicle-image-placeholder{display:grid;place-items:center;height:100%;color:var(--muted);font-size:12px;font-weight:700}.manage-actions{display:flex;gap:8px;margin-top:14px}.manage-actions .btn{flex:1}.quick-actions{display:grid;grid-template-columns:minmax(0,1fr) 52px;gap:10px;margin-top:10px;width:100%}.quick-actions .quick-icon{height:44px;min-width:0;border-radius:11px;display:grid;place-items:center;padding:0}.quick-actions .quick-icon .icon{width:19px;height:19px}.lease-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.lease-box{background:var(--surface2);border-radius:13px;padding:12px}.lease-box b{display:block;font-size:19px}.lease-box span{display:block;color:var(--muted);font-size:10px;margin-top:2px}.pace-value{display:flex;align-items:center;gap:7px}.pace-trend{font-size:18px;font-weight:900;line-height:1;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:7px}.pace-trend.up{color:#f87171;background:rgba(248,113,113,.10)}.pace-trend.down{color:#4ade80;background:rgba(74,222,128,.10)}.pace-trend.flat{color:var(--muted);background:var(--surface)}.lease-target{margin-top:10px;border:1px solid var(--line);border-radius:14px;padding:13px;background:var(--surface2);display:flex;justify-content:space-between;align-items:center;gap:12px}.lease-target strong{font-size:15px}.lease-target span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.lease-target b{font-size:20px;white-space:nowrap}.lease-callout{margin-top:12px;border:1px solid var(--line);border-radius:14px;padding:13px;background:var(--surface2)}.lease-callout strong{font-size:15px}.lease-callout p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.4}.whatif{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end;margin-top:12px}.whatif-presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.whatif-presets button{padding:7px 9px;font-size:11px}.lease-result{margin-top:10px;padding:12px;border-radius:12px;background:var(--surface)}.lease-result b{font-size:18px}.lease-result span{display:block;color:var(--muted);font-size:11px;margin-top:2px}.custom-detail{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:11px;font-weight:750;color:var(--muted)}
 .cost-breakdown{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
 .cost-breakdown div{background:var(--surface);border-radius:10px;padding:9px 10px}
 .cost-breakdown span{display:block;color:var(--muted);font-size:10px}.cost-breakdown b{display:block;font-size:14px;margin-top:2px}
@@ -200,10 +201,11 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
    <div class="lease-box"><b id="leaseMonths">—</b><span>months remaining</span></div>
    <div class="lease-box"><b id="leaseExpected">—</b><span>km expected by now</span></div>
    <div class="lease-box"><b id="leasePace">—</b><span>km ahead of pace</span></div>
-   <div class="lease-box"><b id="leaseAvgDay">—</b><span>km/day currently</span></div>
+   <div class="lease-box"><div class="pace-value"><b id="leaseAvgDay">—</b><span id="leaseTrend" class="pace-trend flat" aria-label="Driving pace trend">→</span></div><span>km/day currently</span></div>
    <div class="lease-box"><b id="leaseProjected">—</b><span>projected lease-end km</span></div>
    <div class="lease-box"><b id="leaseExcess">—</b><span>projected excess km</span></div>
   </div>
+  <div class="lease-target"><div><strong>Safe driving pace</strong><span id="leaseTargetText">Maximum average driving rate from today to lease end</span></div><b id="leaseTargetDay">—</b></div>
   <div class="lease-callout">
    <strong id="leaseCostTitle">Projected excess mileage cost</strong>
    <p id="leaseCostText">Based on your current driving rate and your saved excess-mileage rate.</p>
@@ -464,7 +466,9 @@ function leaseMetrics(){
  const now=new Date();
  const totalDays=Math.max(1,(end-start)/86400000);
  const elapsedDays=Math.min(totalDays,Math.max(0,(now-start)/86400000));
- const currentOdo=d.mileage.length?[...d.mileage].sort((a,b)=>b.date.localeCompare(a.date))[0].odo:s.vodo;
+ const remainingDays=Math.max(0,(end-now)/86400000);
+ const readings=[...d.mileage].sort((a,b)=>a.date.localeCompare(b.date)||a.odo-b.odo);
+ const currentOdo=readings.length?readings[readings.length-1].odo:s.vodo;
  const driven=Math.max(0,currentOdo-(+s.leaseOdo||0));
  const expected=s.allowance*(elapsedDays/totalDays);
  const ahead=driven-expected;
@@ -473,7 +477,49 @@ function leaseMetrics(){
  const excess=Math.max(0,projected-s.allowance);
  const months=Math.max(0,(end-now)/86400000/30.4375);
  const projectedCost=excess*Math.max(0,+s.vRate||0);
- return {start,end,totalDays,elapsedDays,currentOdo,driven,expected,ahead,avgDay,projected,excess,months,projectedCost};
+
+ // Trend: compare the average daily rate over the latest 30 days
+ // with the preceding 30 days. If the log is sparse, fall back to
+ // the two most recent odometer intervals so the indicator still works.
+ const todayMs=now.getTime();
+ const windowRate=(fromMs,toMs)=>{
+  const pts=readings.filter(r=>{
+   const t=new Date(r.date+'T23:59:59').getTime();
+   return t>=fromMs && t<=toMs;
+  });
+  if(pts.length<2) return null;
+  const first=pts[0], last=pts[pts.length-1];
+  const days=Math.max(1,(new Date(last.date)-new Date(first.date))/86400000);
+  return Math.max(0,(+last.odo-+first.odo))/days;
+ };
+ let recentDayRate=windowRate(todayMs-30*86400000,todayMs);
+ let priorDayRate=windowRate(todayMs-60*86400000,todayMs-30*86400000);
+
+ if(recentDayRate==null || priorDayRate==null){
+  const intervals=[];
+  for(let i=1;i<readings.length;i++){
+   const a=readings[i-1], b=readings[i];
+   const days=Math.max(1,(new Date(b.date)-new Date(a.date))/86400000);
+   if(days<=90) intervals.push({rate:Math.max(0,(+b.odo-+a.odo))/days,date:b.date});
+  }
+  if(intervals.length>=2){
+   const last=intervals[intervals.length-1], prev=intervals[intervals.length-2];
+   recentDayRate=recentDayRate==null?last.rate:recentDayRate;
+   priorDayRate=priorDayRate==null?prev.rate:priorDayRate;
+  }
+ }
+
+ let trend='flat', trendPct=0;
+ if(recentDayRate!=null && priorDayRate!=null){
+  trendPct=priorDayRate>0?((recentDayRate-priorDayRate)/priorDayRate)*100:0;
+  const threshold=Math.max(0.5,priorDayRate*.05);
+  const delta=recentDayRate-priorDayRate;
+  trend=delta>threshold?'up':delta<-threshold?'down':'flat';
+ }
+
+ const remainingAllowance=Math.max(0,(+s.allowance||0)-currentOdo);
+ const targetDay=remainingDays>0?remainingAllowance/remainingDays:0;
+ return {start,end,totalDays,elapsedDays,remainingDays,currentOdo,driven,expected,ahead,avgDay,projected,excess,months,projectedCost,recentDayRate,priorDayRate,trend,trendPct,targetDay};
 }
 function renderLeaseProjection(){
  const m=leaseMetrics();
@@ -481,8 +527,21 @@ function renderLeaseProjection(){
  leaseExpected.textContent=fmt(m.expected);
  leasePace.textContent=(m.ahead>=0?'+':'-')+fmt(Math.abs(m.ahead));
  leaseAvgDay.textContent=m.avgDay.toFixed(1);
+ leaseTrend.textContent=m.trend==='up'?'↑':m.trend==='down'?'↓':'→';
+ leaseTrend.className='pace-trend '+m.trend;
+ const trendLabel=m.trend==='up'
+  ? `Driving pace is trending upward${m.trendPct?` (${Math.abs(m.trendPct).toFixed(0)}% faster recently)`:''}`
+  : m.trend==='down'
+   ? `Driving pace is trending downward${m.trendPct?` (${Math.abs(m.trendPct).toFixed(0)}% slower recently)`:''}`
+   : 'Driving pace is roughly unchanged';
+ leaseTrend.title=trendLabel;
+ leaseTrend.setAttribute('aria-label',trendLabel);
  leaseProjected.textContent=fmt(m.projected);
  leaseExcess.textContent=m.excess?fmt(m.excess):'0';
+ leaseTargetDay.textContent=m.targetDay.toFixed(1)+' km/day';
+ leaseTargetText.textContent=m.remainingDays>0
+  ? `Average no more than ${m.targetDay.toFixed(1)} km/day from today to lease end to stay within your ${fmt(d.settings.allowance)} km allowance.`
+  : 'Lease end reached.';
  leaseCostTitle.textContent=m.excess?'Projected excess mileage cost: '+money(m.projectedCost):'Projected to stay within lease allowance';
  leaseCostText.textContent=m.excess
   ? `At your current ${m.avgDay.toFixed(1)} km/day pace, you would finish around ${fmt(m.projected)} km — about ${fmt(m.excess)} km over the ${fmt(d.settings.allowance)} km allowance.`
