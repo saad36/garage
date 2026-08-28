@@ -256,6 +256,12 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
 
 
 
+
+<div class="modal" id="installModal"><div class="sheet"><div class="sheet-head"><div><h2>Install Garage</h2><span class="stat-label">Use Garage like a native app</span></div><button class="iconbtn" onclick="closeInstall()">×</button></div>
+<p class="note">Install Garage on your phone for a full-screen app experience and quick access from your app drawer.</p>
+<div class="manage-actions"><button class="btn" onclick="closeInstall()">Not now</button><button class="btn primary" onclick="installGarage()">Install app</button></div>
+</div></div>
+
 <div class="modal" id="customVehicleModal"><div class="sheet"><div class="sheet-head"><div><h2 id="customVehicleTitle">Vehicle</h2><span id="customVehicleSubtitle" class="stat-label"></span></div><button class="iconbtn" onclick="closeCustomVehicle()">×</button></div>
  <div id="customVehicleContent"></div>
 </div></div>
@@ -310,6 +316,7 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
  <div style="display:flex;gap:8px;margin-top:14px"><button class="btn" style="flex:1" onclick="closeSettings()">Cancel</button><button class="btn primary" style="flex:1" onclick="saveSettings()">Save</button></div>
  <button class="btn block" onclick="exportData()">Export all garage data</button>
  <button class="btn block" onclick="document.getElementById('backupFile').click()">Import garage backup</button>
+ <button id="installAppBtn" class="btn block" style="display:none" onclick="openInstall()">Install Garage as an app</button>
  <input id="backupFile" type="file" accept=".json,application/json" style="display:none" onchange="importData(event)">
  <div class="note">Downloads a complete JSON backup of your Garage data, including vehicle settings, fuel, charging, mileage and maintenance records.</div>
 </div></div>
@@ -747,6 +754,33 @@ function importData(event){
   event.target.value='';
  };
  reader.readAsText(file);
+}
+
+
+let deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+ e.preventDefault();
+ deferredInstallPrompt=e;
+ const b=document.getElementById('installAppBtn'); if(b)b.style.display='';
+});
+window.addEventListener('appinstalled',()=>{
+ deferredInstallPrompt=null;
+ const b=document.getElementById('installAppBtn'); if(b)b.style.display='none';
+ closeInstall();
+ toast('Garage installed');
+});
+function openInstall(){
+ if(deferredInstallPrompt) installGarage();
+ else installModal.classList.add('show');
+}
+function closeInstall(){installModal.classList.remove('show')}
+async function installGarage(){
+ if(!deferredInstallPrompt){installModal.classList.add('show');return}
+ const prompt=deferredInstallPrompt;
+ deferredInstallPrompt=null;
+ await prompt.prompt();
+ const result=await prompt.userChoice;
+ if(result.outcome==='accepted') toast('Installing Garage');
 }
 
 function exportData(){
