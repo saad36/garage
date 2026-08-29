@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="./manifest.webmanifest">
 <title>My Garage</title>
-<meta name="garage-version" content="35">
+<meta name="garage-version" content="35.1">
 <style>
 :root{
  --bg:#f4f6f8;--surface:#fff;--surface2:#f8fafc;--text:#0f172a;--muted:#64748b;
@@ -102,7 +102,7 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
  <div class="brand"><h1>My Garage</h1><p>Vehicles, energy and running costs</p></div>
  <div class="header-actions">
   <button class="iconbtn" id="themeBtn" onclick="toggleTheme()" aria-label="Toggle dark mode"></button>
-  <button class="iconbtn" onclick="openSettings()" aria-label="Garage settings">
+  <button class="iconbtn" id="settingsBtn" aria-label="Garage settings">
    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-2.6V20a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1A1.7 1.7 0 0 0 8 15a1.7 1.7 0 0 0-1.6-1H6v-2.6h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9-1.6V5h2.6v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2V14h-.2a1.7 1.7 0 0 0-1.6 1Z"/></svg>
   </button>
  </div>
@@ -436,6 +436,7 @@ const ui=Object.freeze({
   sLeaseStart:document.getElementById('sLeaseStart'),
   sVodo:document.getElementById('sVodo'),
   sVrate:document.getElementById('sVrate'),
+  settingsBtn:document.getElementById('settingsBtn'),
   settingsModal:document.getElementById('settingsModal'),
   sumCharge:document.getElementById('sumCharge'),
   sumFuel:document.getElementById('sumFuel'),
@@ -1081,6 +1082,18 @@ function saveSettings(){
  render();
  toast('Garage settings saved');
 }
+
+ui.settingsBtn.addEventListener('click',openSettings);
+ui.settingsModal.querySelector('.sheet-head .iconbtn').addEventListener('click',closeSettings);
+const settingsButtons=ui.settingsModal.querySelectorAll('.manage-actions .btn');
+if(settingsButtons[0])settingsButtons[0].addEventListener('click',closeSettings);
+if(settingsButtons[1])settingsButtons[1].addEventListener('click',saveSettings);
+const exportBtn=ui.settingsModal.querySelector('[onclick="exportData()"]');
+if(exportBtn){exportBtn.removeAttribute('onclick');exportBtn.addEventListener('click',exportData);}
+const importBtn=ui.settingsModal.querySelector('[onclick*="backupFile"]');
+if(importBtn){importBtn.removeAttribute('onclick');importBtn.addEventListener('click',()=>ui.backupFile.click());}
+const installBtn=ui.installAppBtn;
+if(installBtn){installBtn.removeAttribute('onclick');installBtn.addEventListener('click',openInstall);}
 
 if(localStorage.getItem('garageTheme')!=='light')document.documentElement.classList.add('dark');
 updateThemeIcon();
