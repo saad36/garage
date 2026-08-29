@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="./manifest.webmanifest">
 <title>My Garage</title>
-<meta name="garage-version" content="35.1">
+<meta name="garage-version" content="35.2">
 <style>
 :root{
  --bg:#f4f6f8;--surface:#fff;--surface2:#f8fafc;--text:#0f172a;--muted:#64748b;
@@ -101,7 +101,7 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
 <header class="header">
  <div class="brand"><h1>My Garage</h1><p>Vehicles, energy and running costs</p></div>
  <div class="header-actions">
-  <button class="iconbtn" id="themeBtn" onclick="toggleTheme()" aria-label="Toggle dark mode"></button>
+  <button class="iconbtn" id="themeBtn" aria-label="Toggle dark mode"></button>
   <button class="iconbtn" id="settingsBtn" aria-label="Garage settings">
    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-2.6V20a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1A1.7 1.7 0 0 0 8 15a1.7 1.7 0 0 0-1.6-1H6v-2.6h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9-1.6V5h2.6v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2V14h-.2a1.7 1.7 0 0 0-1.6 1Z"/></svg>
   </button>
@@ -252,9 +252,9 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
 </div>
 
 <nav class="nav" aria-label="Primary navigation">
- <button data-nav="home" class="active" onclick="show('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>Garage</button>
- <button data-nav="audi" onclick="show('audi')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 15h2l2-5h10l2 5h2v4h-2v2h-2v-2H7v2H5v-2H3z"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/></svg>Audi</button>
- <button data-nav="vistiq" onclick="show('vistiq')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="17" height="12" rx="2"/><path d="M21 10v4M7 12h6M10 9v6"/></svg>VISTIQ</button>
+ <button data-nav="home" class="active" data-screen="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>Garage</button>
+ <button data-nav="audi" data-screen="audi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 15h2l2-5h10l2 5h2v4h-2v2h-2v-2H7v2H5v-2H3z"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/></svg>Audi</button>
+ <button data-nav="vistiq" data-screen="vistiq"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="17" height="12" rx="2"/><path d="M21 10v4M7 12h6M10 9v6"/></svg>VISTIQ</button>
 </nav>
 
 
@@ -1083,7 +1083,10 @@ function saveSettings(){
  toast('Garage settings saved');
 }
 
-ui.settingsBtn.addEventListener('click',openSettings);
+if(ui.themeBtn) ui.themeBtn.addEventListener('click',toggleTheme);
+if(ui.settingsBtn) document.querySelectorAll('.nav button[data-screen]').forEach(btn=>{
+  btn.addEventListener('click',()=>show(btn.dataset.screen));
+});
 ui.settingsModal.querySelector('.sheet-head .iconbtn').addEventListener('click',closeSettings);
 const settingsButtons=ui.settingsModal.querySelectorAll('.manage-actions .btn');
 if(settingsButtons[0])settingsButtons[0].addEventListener('click',closeSettings);
