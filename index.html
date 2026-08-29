@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="./manifest.webmanifest">
 <title>My Garage</title>
-<meta name="garage-version" content="28">
+<meta name="garage-version" content="29">
 <style>
 :root{
  --bg:#f4f6f8;--surface:#fff;--surface2:#f8fafc;--text:#0f172a;--muted:#64748b;
@@ -328,19 +328,28 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
 const KEY='garageDataV1';
 const $=id=>document.getElementById(id);
 const initial={settings:{allowance:101847,vodo:16392,vRate:.20,eRate:.098,leaseStart:'2026-04-27',leaseEnd:'2030-04-27',leaseOdo:0},fuel:[],charge:[],maint:[],vehicles:[],customFuel:[],customCharge:[]};
-let d=JSON.parse(localStorage.getItem(KEY)||'null')||structuredClone(initial);
-d.settings={...initial.settings,...(d.settings||{})};d.fuel=d.fuel||[];d.charge=d.charge||[];d.maint=d.maint||[];d.mileage=d.mileage||[];d.vehicles=d.vehicles||[];d.customFuel=d.customFuel||[];d.customCharge=d.customCharge||[];
-if(!d.mileage.length && d.settings.vodo)d.mileage=[{date:'2026-08-27',odo:d.settings.vodo}];
+function normalizeData(x){
+ x=x&&typeof x==='object'?x:structuredClone(initial);
+ x.settings={...initial.settings,...(x.settings||{})};x.fuel=Array.isArray(x.fuel)?x.fuel:[];x.charge=Array.isArray(x.charge)?x.charge:[];x.maint=Array.isArray(x.maint)?x.maint:[];x.mileage=Array.isArray(x.mileage)?x.mileage:[];x.vehicles=Array.isArray(x.vehicles)?x.vehicles:[];x.customFuel=Array.isArray(x.customFuel)?x.customFuel:[];x.customCharge=Array.isArray(x.customCharge)?x.customCharge:[];
+ if(!x.mileage.length&&x.settings.vodo)x.mileage=[{date:'2026-08-27',odo:x.settings.vodo}];
+ return x;
+}
+let d;
+try{d=normalizeData(JSON.parse(localStorage.getItem(KEY)||'null'))}catch(e){console.warn('Garage data was unreadable; starting from defaults',e);d=normalizeData(null)}
 const money=n=>'$'+Number(n||0).toFixed(2);
 const fmt=n=>Number(n||0).toLocaleString(undefined,{maximumFractionDigits:1});
 const dateFmt=s=>new Date(s+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
 const DB_NAME='garageStorageV1', DB_STORE='garage';
-let persistenceReady=false;
 function openGarageDB(){return new Promise((resolve,reject)=>{try{const r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(DB_STORE))r.result.createObjectStore(DB_STORE)};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)}catch(e){reject(e)}})}
-async function persistIndexedDB(){try{const db=await openGarageDB();const tx=db.transaction(DB_STORE,'readwrite');tx.objectStore(DB_STORE).put({savedAt:Date.now(),data:d},'state');await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});db.close()}catch(e){console.warn('IndexedDB backup unavailable',e)}}
-async function hydratePersistence(){try{const db=await openGarageDB();const rec=await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,'readonly');const r=tx.objectStore(DB_STORE).get('state');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});db.close();if(rec&&rec.data){const localSaved=Number(localStorage.getItem('garageDataSavedAt')||0);if(rec.savedAt>localSaved){d=rec.data;d.settings={...initial.settings,...(d.settings||{})};d.fuel=d.fuel||[];d.charge=d.charge||[];d.maint=d.maint||[];d.mileage=d.mileage||[];d.vehicles=d.vehicles||[];d.customFuel=d.customFuel||[];d.customCharge=d.customCharge||[];localStorage.setItem(KEY,JSON.stringify(d));localStorage.setItem('garageDataSavedAt',String(rec.savedAt));}else if(!rec.savedAt){persistIndexedDB()}}else{persistIndexedDB()}persistenceReady=true;render()}catch(e){console.warn('Persistence restore unavailable',e);persistenceReady=true;render()}}
+async function persistIndexedDB(snapshot){try{const db=await openGarageDB();const tx=db.transaction(DB_STORE,'readwrite');tx.objectStore(DB_STORE).put({savedAt:Date.now(),data:snapshot},'state');await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});db.close()}catch(e){console.warn('IndexedDB backup unavailable',e)}}
 function save(){
- try{const now=Date.now();localStorage.setItem(KEY,JSON.stringify(d));localStorage.setItem('garageDataSavedAt',String(now));persistIndexedDB();return true}catch(e){console.error('Garage save failed',e);toast('Could not save garage data. Check browser storage.');return false}
+ try{
+  const serialized=JSON.stringify(d);
+  localStorage.setItem(KEY,serialized);
+  if(localStorage.getItem(KEY)!==serialized)throw new Error('localStorage verification failed');
+  persistIndexedDB(JSON.parse(serialized));
+  return true;
+ }catch(e){console.error('Garage save failed',e);toast('Could not save garage data. Browser storage is unavailable.');return false}
 }
 function today(){return new Date().toISOString().slice(0,10)}
 function show(id){
@@ -894,7 +903,8 @@ function saveSettings(){d.settings.allowance=+sAllowance.value;d.settings.leaseS
 if(localStorage.getItem('garageTheme')!=='light')document.documentElement.classList.add('dark');
 updateThemeIcon();
 aDate.value=vDate.value=vMileageDate.value=aMDate.value=vMDate.value=today();
-hydratePersistence();
+render();
+// v29: localStorage is the canonical store. IndexedDB is backup-only and never overwrites newer form data.
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script>
 <div id="toast" class="toast" role="status"></div></body>
