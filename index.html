@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="./manifest.webmanifest">
 <title>My Garage</title>
-<meta name="garage-version" content="31">
+<meta name="garage-version" content="33">
 <style>
 :root{
  --bg:#f4f6f8;--surface:#fff;--surface2:#f8fafc;--text:#0f172a;--muted:#64748b;
@@ -330,8 +330,29 @@ const $=id=>document.getElementById(id);
 const initial={settings:{allowance:101847,vodo:16392,vRate:.20,eRate:.098,leaseStart:'2026-04-27',leaseEnd:'2030-04-27',leaseOdo:0},fuel:[],charge:[],maint:[],vehicles:[],customFuel:[],customCharge:[]};
 function normalizeData(x){
  x=x&&typeof x==='object'?x:structuredClone(initial);
- x.settings={...initial.settings,...(x.settings||{})};x.fuel=Array.isArray(x.fuel)?x.fuel:[];x.charge=Array.isArray(x.charge)?x.charge:[];x.maint=Array.isArray(x.maint)?x.maint:[];x.mileage=Array.isArray(x.mileage)?x.mileage:[];x.vehicles=Array.isArray(x.vehicles)?x.vehicles:[];x.customFuel=Array.isArray(x.customFuel)?x.customFuel:[];x.customCharge=Array.isArray(x.customCharge)?x.customCharge:[];
- if(!x.mileage.length&&x.settings.vodo)x.mileage=[{date:'2026-08-27',odo:x.settings.vodo}];
+ x.settings={...initial.settings,...(x.settings||{})};
+ x.fuel=Array.isArray(x.fuel)?x.fuel:[];
+ x.charge=Array.isArray(x.charge)?x.charge:[];
+ x.maint=Array.isArray(x.maint)?x.maint:[];
+ x.mileage=Array.isArray(x.mileage)?x.mileage:[];
+ x.vehicles=Array.isArray(x.vehicles)?x.vehicles:[];
+ x.customFuel=Array.isArray(x.customFuel)?x.customFuel:[];
+ x.customCharge=Array.isArray(x.customCharge)?x.customCharge:[];
+
+ // Migrate legacy/current odometer values into the same mileage history.
+ x.mileage.sort((a,b)=>String(a.date).localeCompare(String(b.date))||Number(a.odo)-Number(b.odo));
+ const historyOdo=x.mileage.length?Number(x.mileage[x.mileage.length-1].odo):0;
+ const settingsOdo=Number(x.settings.vodo||0);
+ const canonical=Math.max(historyOdo,settingsOdo);
+
+ if(canonical>0){
+   const todayDate=today();
+   const todayRow=x.mileage.find(r=>r.date===todayDate);
+   if(todayRow) todayRow.odo=Math.max(Number(todayRow.odo||0),canonical);
+   else if(canonical>historyOdo) x.mileage.push({date:todayDate,odo:canonical});
+   x.mileage.sort((a,b)=>String(a.date).localeCompare(String(b.date))||Number(a.odo)-Number(b.odo));
+   x.settings.vodo=canonical;
+ }
  return x;
 }
 let d;
@@ -578,7 +599,26 @@ function calculateWhatIf(){
  whatIfDetail.textContent=`At ${fmt(monthly)} km/month for the remaining ${m.months.toFixed(1)} months, projected lease-end mileage is ${fmt(projected)} km.`;
 }
 
+
+function reconcileVistiqMileage(){
+ const history=Array.isArray(d.mileage)?d.mileage:(d.mileage=[]);
+ const settingsOdo=Number(d.settings.vodo||0);
+ history.sort((a,b)=>String(a.date).localeCompare(String(b.date))||Number(a.odo)-Number(b.odo));
+ const latest=history.length?Number(history[history.length-1].odo):0;
+ const current=Math.max(settingsOdo,latest);
+ if(current>0){
+  const todayDate=today();
+  const todayRow=history.find(x=>x.date===todayDate);
+  if(todayRow) todayRow.odo=Math.max(Number(todayRow.odo||0),current);
+  else if(current>latest) history.push({date:todayDate,odo:current});
+  history.sort((a,b)=>String(a.date).localeCompare(String(b.date))||Number(a.odo)-Number(b.odo));
+  d.settings.vodo=current;
+ }
+ return current;
+}
+
 function render(){
+ reconcileVistiqMileage();
  renderCustomVehicles();
  const f=[...d.fuel].sort((a,b)=>a.date.localeCompare(b.date));
  const c=[...d.charge].sort((a,b)=>a.date.localeCompare(b.date));
@@ -613,7 +653,8 @@ function render(){
  audiEff.textContent=avg?avg.toFixed(1):'—';audiCost.textContent=avgCost?money(avgCost):'—';audiCostKm.textContent=audiCostKm!=null?money(audiCostKm):'—';
  aAvg.textContent=avg?avg.toFixed(1):'—';aCost100.textContent=avgCost?money(avgCost):'—';
  aTotalFuel.textContent=totalFuel.toFixed(1)+' L';aTotalSpend.textContent=money(fs);aServiceTotal.textContent=money(ma);
- const currentOdo=miles.length?+miles[miles.length-1].odo:+d.settings.vodo;
+ const historyOdo=miles.length?+miles[miles.length-1].odo:0;
+ const currentOdo=Math.max(historyOdo,+d.settings.vodo||0);
  d.settings.vodo=currentOdo;
  vRemain.textContent=fmt(Math.max(0,d.settings.allowance-currentOdo));vEnergy.textContent=totalKwh.toFixed(1);
  vKm.textContent=fmt(currentOdo);vRem.textContent=fmt(Math.max(0,d.settings.allowance-currentOdo));
@@ -631,7 +672,8 @@ function render(){
  fuelHistory.innerHTML=f.slice().reverse().map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${fmt(x.odo)}</td><td>${money(x.price)}</td><td>${money(x.spend)}</td><td>${x.litres.toFixed(1)}</td><td>${x.eff?x.eff.toFixed(1):'—'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">No fill-ups logged yet.</td></tr>';
  chargeHistory.innerHTML=c.slice().reverse().map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.kwh.toFixed(1)}</td><td>${money(x.rate)}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No charging sessions logged yet.</td></tr>';
  const mh=miles.slice().reverse();
- mileageHistory.innerHTML=mh.map((x,i)=>{const older=mh[i+1];const since=older?+x.odo-+older.odo:0;return `<tr><td>${dateFmt(x.date)}</td><td>${fmt(x.odo)}</td><td>${since>0?fmt(since)+' km':'—'}</td></tr>`}).join('')||'<tr><td colspan="3" class="empty">No mileage readings logged yet.</td></tr>';
+ const mileageHistoryEl=document.getElementById('mileageHistory');
+ mileageHistoryEl.innerHTML=mh.map((x,i)=>{const older=mh[i+1];const since=older?+x.odo-+older.odo:0;return `<tr><td>${dateFmt(x.date)}</td><td>${fmt(x.odo)}</td><td>${since>0?fmt(since)+' km':'—'}</td></tr>`}).join('')||'<tr><td colspan="3" class="empty">No mileage readings logged yet.</td></tr>';
  maintHistory.innerHTML=[...d.maint].sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.vehicle}</td><td>${x.type}</td><td>${x.odo?fmt(x.odo):'—'}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No maintenance logged yet.</td></tr>';
  drawFuel(f);drawGarageCharts(f,c,d.maint,miles);
 }
@@ -910,15 +952,28 @@ function exportData(){
  setTimeout(()=>URL.revokeObjectURL(url),1000);
  toast('Garage data exported');
 }
-function openSettings(){sAllowance.value=d.settings.allowance;sLeaseStart.value=d.settings.leaseStart||initial.settings.leaseStart;sLeaseEnd.value=d.settings.leaseEnd||initial.settings.leaseEnd;sLeaseOdo.value=d.settings.leaseOdo||0;sVodo.value=(d.mileage.length?[...d.mileage].sort((a,b)=>b.date.localeCompare(a.date))[0].odo:d.settings.vodo);sVrate.value=d.settings.vRate;sERate.value=d.settings.eRate;settingsModal.classList.add('show')}
+function openSettings(){reconcileVistiqMileage();sAllowance.value=d.settings.allowance;sLeaseStart.value=d.settings.leaseStart||initial.settings.leaseStart;sLeaseEnd.value=d.settings.leaseEnd||initial.settings.leaseEnd;sLeaseOdo.value=d.settings.leaseOdo||0;sVodo.value=d.settings.vodo||0;sVrate.value=d.settings.vRate;sERate.value=d.settings.eRate;settingsModal.classList.add('show')}
 function closeSettings(){settingsModal.classList.remove('show')}
-function saveSettings(){d.settings.allowance=+sAllowance.value;d.settings.leaseStart=sLeaseStart.value||initial.settings.leaseStart;d.settings.leaseEnd=sLeaseEnd.value||initial.settings.leaseEnd;d.settings.leaseOdo=+sLeaseOdo.value||0;d.settings.vodo=+sVodo.value;d.settings.vRate=+sVrate.value;d.settings.eRate=+sERate.value;
- const last=d.mileage.length?[...d.mileage].sort((a,b)=>b.date.localeCompare(a.date))[0]:null;
- if(!last||last.odo!==d.settings.vodo)d.mileage.push({date:today(),odo:d.settings.vodo});
- save();closeSettings();render()}
+function saveSettings(){
+ d.settings.allowance=+sAllowance.value;
+ d.settings.leaseStart=sLeaseStart.value||initial.settings.leaseStart;
+ d.settings.leaseEnd=sLeaseEnd.value||initial.settings.leaseEnd;
+ d.settings.leaseOdo=+sLeaseOdo.value||0;
+ d.settings.vodo=+sVodo.value||0;
+ d.settings.vRate=+sVrate.value;
+ d.settings.eRate=+sERate.value;
+ reconcileVistiqMileage();
+ save();
+ closeSettings();
+ render();
+ toast('Garage settings saved');
+}
+
 if(localStorage.getItem('garageTheme')!=='light')document.documentElement.classList.add('dark');
 updateThemeIcon();
 aDate.value=vDate.value=vMileageDate.value=aMDate.value=vMDate.value=today();
+reconcileVistiqMileage();
+save();
 render();
 // v29: localStorage is the canonical store. IndexedDB is backup-only and never overwrites newer form data.
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
