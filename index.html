@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="./manifest.webmanifest">
 <title>My Garage</title>
-<meta name="garage-version" content="24">
+<meta name="garage-version" content="27">
 <style>
 :root{
  --bg:#f4f6f8;--surface:#fff;--surface2:#f8fafc;--text:#0f172a;--muted:#64748b;
@@ -326,6 +326,7 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
 
 <script>
 const KEY='garageDataV1';
+const $=id=>document.getElementById(id);
 const initial={settings:{allowance:101847,vodo:16392,vRate:.20,eRate:.098,leaseStart:'2026-04-27',leaseEnd:'2030-04-27',leaseOdo:0},fuel:[],charge:[],maint:[],vehicles:[],customFuel:[],customCharge:[]};
 let d=JSON.parse(localStorage.getItem(KEY)||'null')||structuredClone(initial);
 d.settings={...initial.settings,...(d.settings||{})};d.fuel=d.fuel||[];d.charge=d.charge||[];d.maint=d.maint||[];d.mileage=d.mileage||[];d.vehicles=d.vehicles||[];d.customFuel=d.customFuel||[];d.customCharge=d.customCharge||[];
@@ -333,7 +334,9 @@ if(!d.mileage.length && d.settings.vodo)d.mileage=[{date:'2026-08-27',odo:d.sett
 const money=n=>'$'+Number(n||0).toFixed(2);
 const fmt=n=>Number(n||0).toLocaleString(undefined,{maximumFractionDigits:1});
 const dateFmt=s=>new Date(s+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
-function save(){localStorage.setItem(KEY,JSON.stringify(d))}
+function save(){
+ try{localStorage.setItem(KEY,JSON.stringify(d));return true}catch(e){console.error('Garage save failed',e);toast('Could not save garage data. Check browser storage.');return false}
+}
 function today(){return new Date().toISOString().slice(0,10)}
 function show(id){
  document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
@@ -574,11 +577,11 @@ function render(){
  const totalKwh=c.reduce((s,x)=>s+x.kwh,0);
  const dist=miles.length>1?miles[miles.length-1].odo-miles[0].odo:0;
  const audiDist=f.length>1?f[f.length-1].odo-f[0].odo:0;
+ const ma=d.maint.filter(x=>x.vehicle==='Audi A7').reduce((s,x)=>s+x.cost,0);
+ const mv=d.maint.filter(x=>x.vehicle==='Cadillac VISTIQ').reduce((s,x)=>s+x.cost,0);
  const audiCostKm=audiDist>0?(fs+ma)/audiDist:null;
  const vistiqCostKm=dist>0?(cs+mv)/dist:null;
  const cEff=dist>0?(totalKwh/dist)*100:null;
- const ma=d.maint.filter(x=>x.vehicle==='Audi A7').reduce((s,x)=>s+x.cost,0);
- const mv=d.maint.filter(x=>x.vehicle==='Cadillac VISTIQ').reduce((s,x)=>s+x.cost,0);
  const year=String(new Date().getFullYear());
  const audiYtd=ytdAudiMileage(f),vistiqYtd=ytdMileageFromReadings(miles),garageYtd=audiYtd+vistiqYtd;
  const monthsElapsed=new Date().getMonth()+1;
@@ -624,7 +627,8 @@ function setErr(id,bad,msg){
  el.classList.toggle('invalid',bad);err.textContent=msg;err.classList.toggle('show',bad);
 }
 function toast(msg){toastEl.textContent=msg;toastEl.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>toastEl.classList.remove('show'),2200)}
-const toastEl=document.getElementById('toast');
+function toast(msg){const el=document.getElementById('toast');if(!el)return;el.textContent=msg;el.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>el.classList.remove('show'),2200)}
+
 function addFuel(){
  const date=aDate.value,odo=+aOdo.value,price=+aPrice.value,spend=+aSpend.value;
  setErr('aDate',!date,'Choose a date.');setErr('aOdo',!odo,'Enter the odometer.');setErr('aPrice',!price,'Enter the price per litre.');setErr('aSpend',!spend,'Enter the total spent.');
@@ -636,12 +640,18 @@ function addFuel(){
  save();aOdo.value='';aSpend.value='';render();toast('Fuel fill-up added');
 }
 function addMileage(){
- const date=vMileageDate.value,odo=+vMileageOdo.value;
+ const dateEl=$('vMileageDate'), odoEl=$('vMileageOdo');
+ const date=dateEl?.value||'', odo=Number(odoEl?.value||0);
  setErr('vMileageDate',!date,'Choose a date.');setErr('vMileageOdo',!odo,'Enter the odometer.');
  if(!date||!odo)return;
  const latest=[...d.mileage].sort((a,b)=>b.odo-a.odo)[0];
  if(latest&&odo<latest.odo){setErr('vMileageOdo',true,'Odometer cannot be lower than the last reading.');return}
- d.mileage.push({date,odo});d.settings.vodo=odo;save();vMileageOdo.value='';render();toast('Mileage updated');
+ d.mileage.push({date,odo});
+ d.settings.vodo=odo;
+ if(!save())return;
+ if(odoEl)odoEl.value='';
+ render();
+ toast('Mileage updated');
 }
 function addCharge(){
  const date=vDate.value,kwh=+vKwh.value,rate=+vRate.value||d.settings.eRate;
