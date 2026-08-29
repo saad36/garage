@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="./manifest.webmanifest">
 <title>My Garage</title>
-<meta name="garage-version" content="27">
+<meta name="garage-version" content="28">
 <style>
 :root{
  --bg:#f4f6f8;--surface:#fff;--surface2:#f8fafc;--text:#0f172a;--muted:#64748b;
@@ -334,8 +334,13 @@ if(!d.mileage.length && d.settings.vodo)d.mileage=[{date:'2026-08-27',odo:d.sett
 const money=n=>'$'+Number(n||0).toFixed(2);
 const fmt=n=>Number(n||0).toLocaleString(undefined,{maximumFractionDigits:1});
 const dateFmt=s=>new Date(s+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+const DB_NAME='garageStorageV1', DB_STORE='garage';
+let persistenceReady=false;
+function openGarageDB(){return new Promise((resolve,reject)=>{try{const r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(DB_STORE))r.result.createObjectStore(DB_STORE)};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)}catch(e){reject(e)}})}
+async function persistIndexedDB(){try{const db=await openGarageDB();const tx=db.transaction(DB_STORE,'readwrite');tx.objectStore(DB_STORE).put({savedAt:Date.now(),data:d},'state');await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});db.close()}catch(e){console.warn('IndexedDB backup unavailable',e)}}
+async function hydratePersistence(){try{const db=await openGarageDB();const rec=await new Promise((resolve,reject)=>{const tx=db.transaction(DB_STORE,'readonly');const r=tx.objectStore(DB_STORE).get('state');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});db.close();if(rec&&rec.data){const localSaved=Number(localStorage.getItem('garageDataSavedAt')||0);if(rec.savedAt>localSaved){d=rec.data;d.settings={...initial.settings,...(d.settings||{})};d.fuel=d.fuel||[];d.charge=d.charge||[];d.maint=d.maint||[];d.mileage=d.mileage||[];d.vehicles=d.vehicles||[];d.customFuel=d.customFuel||[];d.customCharge=d.customCharge||[];localStorage.setItem(KEY,JSON.stringify(d));localStorage.setItem('garageDataSavedAt',String(rec.savedAt));}else if(!rec.savedAt){persistIndexedDB()}}else{persistIndexedDB()}persistenceReady=true;render()}catch(e){console.warn('Persistence restore unavailable',e);persistenceReady=true;render()}}
 function save(){
- try{localStorage.setItem(KEY,JSON.stringify(d));return true}catch(e){console.error('Garage save failed',e);toast('Could not save garage data. Check browser storage.');return false}
+ try{const now=Date.now();localStorage.setItem(KEY,JSON.stringify(d));localStorage.setItem('garageDataSavedAt',String(now));persistIndexedDB();return true}catch(e){console.error('Garage save failed',e);toast('Could not save garage data. Check browser storage.');return false}
 }
 function today(){return new Date().toISOString().slice(0,10)}
 function show(id){
@@ -888,7 +893,8 @@ function saveSettings(){d.settings.allowance=+sAllowance.value;d.settings.leaseS
  save();closeSettings();render()}
 if(localStorage.getItem('garageTheme')!=='light')document.documentElement.classList.add('dark');
 updateThemeIcon();
-aDate.value=vDate.value=vMileageDate.value=aMDate.value=vMDate.value=today();render();
+aDate.value=vDate.value=vMileageDate.value=aMDate.value=vMDate.value=today();
+hydratePersistence();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script>
 <div id="toast" class="toast" role="status"></div></body>
