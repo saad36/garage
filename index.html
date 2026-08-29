@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="./manifest.webmanifest">
 <title>My Garage</title>
-<meta name="garage-version" content="33">
+<meta name="garage-version" content="34">
 <style>
 :root{
  --bg:#f4f6f8;--surface:#fff;--surface2:#f8fafc;--text:#0f172a;--muted:#64748b;
@@ -633,8 +633,8 @@ function render(){
  const audiDist=f.length>1?f[f.length-1].odo-f[0].odo:0;
  const ma=d.maint.filter(x=>x.vehicle==='Audi A7').reduce((s,x)=>s+x.cost,0);
  const mv=d.maint.filter(x=>x.vehicle==='Cadillac VISTIQ').reduce((s,x)=>s+x.cost,0);
- const audiCostKm=audiDist>0?(fs+ma)/audiDist:null;
- const vistiqCostKm=dist>0?(cs+mv)/dist:null;
+ const audiCostKmValue=audiDist>0?(fs+ma)/audiDist:null;
+ const vistiqCostKmValue=dist>0?(cs+mv)/dist:null;
  const cEff=dist>0?(totalKwh/dist)*100:null;
  const year=String(new Date().getFullYear());
  const audiYtd=ytdAudiMileage(f),vistiqYtd=ytdMileageFromReadings(miles),garageYtd=audiYtd+vistiqYtd;
@@ -650,7 +650,7 @@ function render(){
   d.maint.filter(x=>x.date.slice(0,4)===year).reduce((s,x)=>s+x.cost,0)
  );
  const pct=d.settings.vodo/d.settings.allowance*100;
- audiEff.textContent=avg?avg.toFixed(1):'—';audiCost.textContent=avgCost?money(avgCost):'—';audiCostKm.textContent=audiCostKm!=null?money(audiCostKm):'—';
+ audiEff.textContent=avg?avg.toFixed(1):'—';audiCost.textContent=avgCost?money(avgCost):'—';audiCostKm.textContent=audiCostKmValue!=null?money(audiCostKmValue):'—';
  aAvg.textContent=avg?avg.toFixed(1):'—';aCost100.textContent=avgCost?money(avgCost):'—';
  aTotalFuel.textContent=totalFuel.toFixed(1)+' L';aTotalSpend.textContent=money(fs);aServiceTotal.textContent=money(ma);
  const historyOdo=miles.length?+miles[miles.length-1].odo:0;
@@ -659,7 +659,7 @@ function render(){
  vRemain.textContent=fmt(Math.max(0,d.settings.allowance-currentOdo));vEnergy.textContent=totalKwh.toFixed(1);
  vKm.textContent=fmt(currentOdo);vRem.textContent=fmt(Math.max(0,d.settings.allowance-currentOdo));
  const currentPct=currentOdo/d.settings.allowance*100;
- vKwh100.textContent=cEff?cEff.toFixed(1):'—';vCost100.textContent=cEff?money(cEff*d.settings.eRate):'—';vistiqCostKm.textContent=vistiqCostKm!=null?money(vistiqCostKm):'—';vLeasePct.textContent=currentPct.toFixed(1)+'%';vBar.style.width=Math.min(100,currentPct)+'%';renderLeaseProjection();
+ vKwh100.textContent=cEff?cEff.toFixed(1):'—';vCost100.textContent=cEff?money(cEff*d.settings.eRate):'—';vistiqCostKm.textContent=vistiqCostKmValue!=null?money(vistiqCostKmValue):'—';vLeasePct.textContent=currentPct.toFixed(1)+'%';vBar.style.width=Math.min(100,currentPct)+'%';renderLeaseProjection();
  sumFuel.textContent=money(fs);sumCharge.textContent=money(cs);sumTotal.textContent=money(fs+cs+mt);
  garageAudiMaint.textContent=money(ma);garageVistiqMaint.textContent=money(mv);
  garageAudiTotal.textContent=money(fs+ma);garageVistiqTotal.textContent=money(cs+mv);
@@ -667,14 +667,14 @@ function render(){
  vMaintTotal.textContent=money(mv);vMaintCount.textContent=d.maint.filter(x=>x.vehicle==='Cadillac VISTIQ').length;
  const aRows=d.maint.filter(x=>x.vehicle==='Audi A7').sort((a,b)=>b.date.localeCompare(a.date));
  const vRows=d.maint.filter(x=>x.vehicle==='Cadillac VISTIQ').sort((a,b)=>b.date.localeCompare(a.date));
- aMaintHistory.innerHTML=aRows.map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.type}</td><td>${x.odo?fmt(x.odo):'—'}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No Audi maintenance logged yet.</td></tr>';
- vMaintHistory.innerHTML=vRows.map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.type}</td><td>${x.odo?fmt(x.odo):'—'}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No VISTIQ maintenance logged yet.</td></tr>';
- fuelHistory.innerHTML=f.slice().reverse().map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${fmt(x.odo)}</td><td>${money(x.price)}</td><td>${money(x.spend)}</td><td>${x.litres.toFixed(1)}</td><td>${x.eff?x.eff.toFixed(1):'—'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">No fill-ups logged yet.</td></tr>';
- chargeHistory.innerHTML=c.slice().reverse().map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.kwh.toFixed(1)}</td><td>${money(x.rate)}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No charging sessions logged yet.</td></tr>';
+ document.getElementById('aMaintHistory').innerHTML=aRows.map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.type}</td><td>${x.odo?fmt(x.odo):'—'}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No Audi maintenance logged yet.</td></tr>';
+ document.getElementById('vMaintHistory').innerHTML=vRows.map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.type}</td><td>${x.odo?fmt(x.odo):'—'}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No VISTIQ maintenance logged yet.</td></tr>';
+ document.getElementById('fuelHistory').innerHTML=f.slice().reverse().map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${fmt(x.odo)}</td><td>${money(x.price)}</td><td>${money(x.spend)}</td><td>${x.litres.toFixed(1)}</td><td>${x.eff?x.eff.toFixed(1):'—'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">No fill-ups logged yet.</td></tr>';
+ document.getElementById('chargeHistory').innerHTML=c.slice().reverse().map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.kwh.toFixed(1)}</td><td>${money(x.rate)}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No charging sessions logged yet.</td></tr>';
  const mh=miles.slice().reverse();
  const mileageHistoryEl=document.getElementById('mileageHistory');
  mileageHistoryEl.innerHTML=mh.map((x,i)=>{const older=mh[i+1];const since=older?+x.odo-+older.odo:0;return `<tr><td>${dateFmt(x.date)}</td><td>${fmt(x.odo)}</td><td>${since>0?fmt(since)+' km':'—'}</td></tr>`}).join('')||'<tr><td colspan="3" class="empty">No mileage readings logged yet.</td></tr>';
- maintHistory.innerHTML=[...d.maint].sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.vehicle}</td><td>${x.type}</td><td>${x.odo?fmt(x.odo):'—'}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No maintenance logged yet.</td></tr>';
+ document.getElementById('maintHistory').innerHTML=[...d.maint].sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.vehicle}</td><td>${x.type}</td><td>${x.odo?fmt(x.odo):'—'}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No maintenance logged yet.</td></tr>';
  drawFuel(f);drawGarageCharts(f,c,d.maint,miles);
 }
 function setErr(id,bad,msg){
