@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="./manifest.webmanifest">
 <title>My Garage</title>
-<meta name="garage-version" content="35.2">
+<meta name="garage-version" content="35.4">
 <style>
 :root{
  --bg:#f4f6f8;--surface:#fff;--surface2:#f8fafc;--text:#0f172a;--muted:#64748b;
@@ -94,6 +94,12 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
 .sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.sheet h2{margin:0}
 @media(max-width:680px){.app{padding:15px 10px 92px}.hero-grid{grid-template-columns:1fr 1fr;gap:8px}.vehicle-art{height:145px}.vehicle-body{padding:11px}.vehicle-title h2{font-size:15px;line-height:1.15}.vehicle-sub{font-size:11px;margin:4px 0 9px}.cost-vehicle{padding:11px}.cost-vehicle-head strong{font-size:13px}.cost-vehicle-head>b{font-size:16px}.garage-total>b{font-size:21px}.badge{font-size:9px;padding:4px 7px}.mini-grid{gap:5px}.mini{padding:8px}.mini b{font-size:15px}.mini span{font-size:9px}.btn.block{padding:9px 6px;font-size:12px;margin-top:8px}.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr 1fr}.brand h1{font-size:25px}}
 @media(max-width:420px){.cost-km b{font-size:13px}.cost-km span{font-size:8px}.kpis{grid-template-columns:1fr 1fr}.form{grid-template-columns:1fr}.full{grid-column:auto}.vehicle-title{display:block}.badge{display:inline-block;margin-top:7px}}
+
+.history-action{width:44px;text-align:right;white-space:nowrap}
+.history-delete{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer}
+.history-delete:hover{color:var(--text);border-color:var(--text)}
+.history-delete:active{transform:scale(.94)}
+
 </style>
 </head>
 <body>
@@ -180,7 +186,7 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
   <button class="btn primary full" onclick="addFuel()">Add fill-up</button>
  </div><div class="note">Enter the odometer, price per litre and total spent. Litres, distance, L/100 km and cost/100 km are calculated automatically.</div></section>
  <section class="card"><h2>Efficiency trend</h2><canvas id="fuelChart" class="chart" width="850" height="220"></canvas></section>
- <section class="card"><h2>Fill-up history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Odometer</th><th>$/L</th><th>Spent</th><th>Litres</th><th>L/100</th></tr></thead><tbody id="fuelHistory"></tbody></table></div></section>
+ <section class="card"><h2>Fill-up history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Odometer</th><th>$/L</th><th>Spent</th><th>Litres</th><th>L/100</th><th></th></tr></thead><tbody id="fuelHistory"></tbody></table></div></section>
  <section class="card" id="audiMaintenance"><div class="section-head"><h2>Maintenance</h2><span class="stat-label">Audi A7</span></div>
   <div class="kpis"><div class="kpi"><b id="aMaintTotal">$0</b><span>Total maintenance</span></div><div class="kpi"><b id="aMaintCount">0</b><span>Services</span></div></div>
   <div class="form" style="margin-top:13px">
@@ -190,7 +196,7 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
    <div class="field"><label>Odometer</label><input id="aMOdo" class="input" type="number" placeholder="km"></div>
    <button class="btn primary full" onclick="addMaintenanceVehicle('Audi A7')">Add Audi maintenance</button>
   </div>
-  <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Date</th><th>Service</th><th>Odometer</th><th>Cost</th></tr></thead><tbody id="aMaintHistory"></tbody></table></div>
+  <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Date</th><th>Service</th><th>Odometer</th><th>Cost</th><th></th></tr></thead><tbody id="aMaintHistory"></tbody></table></div>
  </section>
 </section>
 
@@ -233,9 +239,9 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
   <div class="field"><label>Energy added *</label><input id="vKwh" class="input" type="number" step=".1" placeholder="kWh"><div id="vKwhErr" class="error">Enter the energy added.</div></div>
   <div class="field"><label>Electricity rate</label><input id="vRate" class="input" type="number" step=".001" value=".098" placeholder="$/kWh"></div>
   <button class="btn primary full" onclick="addCharge()">Add charging session</button>
- </div><div class="note">Default is home charging at Ontario TOU off-peak. Your saved default rate is $0.098/kWh. You do not need to enter mileage when charging.</div></section>
- <section class="card"><h2>Charging history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>kWh</th><th>Rate</th><th>Cost</th></tr></thead><tbody id="chargeHistory"></tbody></table></div></section>
- <section class="card"><h2>Mileage history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Odometer</th><th>Since last</th></tr></thead><tbody id="mileageHistory"></tbody></table></div></section>
+ </div><div class="note">Default is home charging at Ontario TOU off-peak. Your saved default rate is $0.098/kWh. Enter $0.00 to override the rate for a free charge. You do not need to enter mileage when charging.</div></section>
+ <section class="card"><h2>Charging history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>kWh</th><th>Rate</th><th>Cost</th><th></th></tr></thead><tbody id="chargeHistory"></tbody></table></div></section>
+ <section class="card"><h2>Mileage history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Odometer</th><th>Since last</th><th></th></tr></thead><tbody id="mileageHistory"></tbody></table></div></section>
  <section class="card" id="vistiqMaintenance"><div class="section-head"><h2>Maintenance</h2><span class="stat-label">Cadillac VISTIQ</span></div>
   <div class="kpis"><div class="kpi"><b id="vMaintTotal">$0</b><span>Total maintenance</span></div><div class="kpi"><b id="vMaintCount">0</b><span>Services</span></div></div>
   <div class="form" style="margin-top:13px">
@@ -245,7 +251,7 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
    <div class="field"><label>Odometer</label><input id="vMOdo" class="input" type="number" placeholder="km"></div>
    <button class="btn primary full" onclick="addMaintenanceVehicle('Cadillac VISTIQ')">Add VISTIQ maintenance</button>
   </div>
-  <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Date</th><th>Service</th><th>Odometer</th><th>Cost</th></tr></thead><tbody id="vMaintHistory"></tbody></table></div>
+  <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Date</th><th>Service</th><th>Odometer</th><th>Cost</th><th></th></tr></thead><tbody id="vMaintHistory"></tbody></table></div>
  </section>
 </section>
 </main>
@@ -291,7 +297,7 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
   <div class="field"><label>Electricity rate</label><input id="qChargeRate" class="input" type="number" inputmode="decimal" step=".001" value=".098" placeholder="$/kWh"></div>
  </div>
  <div class="manage-actions"><button class="btn" onclick="closeQuickCharge()">Cancel</button><button class="btn primary" onclick="saveQuickCharge()">Add charge</button></div>
- <div class="note">The rate defaults to your saved home off-peak electricity rate.</div>
+ <div class="note">The rate defaults to your saved home off-peak rate. Enter $0.00 for a free charge.</div>
 </div></div>
 
 <div class="modal" id="quickFuelModal"><div class="sheet"><div class="sheet-head"><div><h2>Add Audi fuel</h2><span class="stat-label">Quick entry</span></div><button class="iconbtn" onclick="closeQuickFuel()">×</button></div>
@@ -338,6 +344,15 @@ function normalizeData(x){
  x.vehicles=Array.isArray(x.vehicles)?x.vehicles:[];
  x.customFuel=Array.isArray(x.customFuel)?x.customFuel:[];
  x.customCharge=Array.isArray(x.customCharge)?x.customCharge:[];
+ const ensureHistoryIds=(arr,prefix)=>{
+   arr.forEach((item,i)=>{
+     if(!item.id) item.id=prefix+'-'+Date.now().toString(36)+'-'+i+'-'+Math.random().toString(36).slice(2,7);
+   });
+ };
+ ensureHistoryIds(x.fuel,'fuel');
+ ensureHistoryIds(x.charge,'charge');
+ ensureHistoryIds(x.mileage,'mileage');
+ ensureHistoryIds(x.maint,'maint');
 
  // Migrate legacy/current odometer values into the same mileage history.
  x.mileage.sort((a,b)=>String(a.date).localeCompare(String(b.date))||Number(a.odo)-Number(b.odo));
@@ -389,7 +404,32 @@ function toggleTheme(){
 document.addEventListener('click',function(e){
   const nav=e.target.closest('.nav button[data-nav]');
   if(nav){e.preventDefault();e.stopPropagation();show(nav.dataset.nav);return;}
+  const del=e.target.closest('.history-delete');
+  if(del){e.preventDefault();e.stopPropagation();deleteHistoryItem(del.dataset.deleteKind,del.dataset.deleteId);return;}
 });
+
+
+function deleteHistoryItem(kind,id){
+ const collections={fuel:d.fuel,charge:d.charge,mileage:d.mileage,maintenance:d.maint};
+ const list=collections[kind];
+ if(!list||!id)return;
+ const item=list.find(x=>String(x.id)===String(id));
+ if(!item)return;
+ const labels={fuel:'fuel fill-up',charge:'charging session',mileage:'mileage reading',maintenance:'maintenance record'};
+ if(!window.confirm('Delete this '+(labels[kind]||'history entry')+'?'))return;
+ const index=list.findIndex(x=>String(x.id)===String(id));
+ if(index<0)return;
+ list.splice(index,1);
+ // Current odometer is derived from mileage history and settings. Removing
+ // the latest reading must therefore recalculate the canonical odometer.
+ if(kind==='mileage'){
+   const latest=[...d.mileage].sort((a,b)=>String(a.date).localeCompare(String(b.date))||Number(a.odo)-Number(b.odo)).pop();
+   d.settings.vodo=latest?Number(latest.odo||0):0;
+ }
+ if(!save())return;
+ render();
+ toast((labels[kind]||'History entry')+' deleted');
+}
 
 function updateThemeIcon(){
  const dark=document.documentElement.classList.contains('dark');
@@ -477,7 +517,7 @@ function addCustomFuel(id){
 }
 function addCustomCharge(id){
  ensureCustomArrays();
- const date=cvChargeDate.value,kwh=+cvChargeKwh.value,rate=+cvChargeRate.value||d.settings.eRate;
+ const date=cvChargeDate.value,kwh=+cvChargeKwh.value,rate=(cvChargeRate.value.trim()===''?d.settings.eRate:Number(cvChargeRate.value));
  if(!date||!kwh){toast('Enter date and kWh');return}
  d.customCharge.push({vehicleId:id,date,kwh,rate,cost:kwh*rate});
  save();openCustomVehicle(id);toast('Charging added');
@@ -734,7 +774,7 @@ function addMileage(){
  toast(sameDay?'Mileage updated':'Mileage reading added');
 }
 function addCharge(){
- const date=vDate.value,kwh=+vKwh.value,rate=+vRate.value||d.settings.eRate;
+ const date=vDate.value,kwh=+vKwh.value,rate=(vRate.value.trim()===''?d.settings.eRate:Number(vRate.value));
  setErr('vDate',!date,'Choose a date.');setErr('vKwh',!kwh,'Enter the energy added.');
  if(!date||!kwh)return;
  d.charge.push({date,kwh,rate,cost:kwh*rate});save();vKwh.value='';render();toast('Charging session added');
@@ -857,7 +897,7 @@ function openQuickCharge(vehicleId){
 }
 function closeQuickCharge(){quickChargeModal.classList.remove('show');window.quickChargeVehicleId=null}
 function saveQuickCharge(){
- const date=qChargeDate.value,kwh=+qChargeKwh.value,rate=+qChargeRate.value||d.settings.eRate;
+ const date=qChargeDate.value,kwh=+qChargeKwh.value,rate=(qChargeRate.value.trim()===''?d.settings.eRate:Number(qChargeRate.value));
  if(!date||!kwh){toast('Enter date and kWh');return}
  if(window.quickChargeVehicleId){
   d.customCharge=d.customCharge||[];
