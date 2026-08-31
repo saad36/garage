@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="./manifest.webmanifest">
 <title>My Garage</title>
-<meta name="garage-version" content="35.4">
+<meta name="garage-version" content="35.5">
 <style>
 :root{
  --bg:#f4f6f8;--surface:#fff;--surface2:#f8fafc;--text:#0f172a;--muted:#64748b;
@@ -392,7 +392,20 @@ function show(id){
  document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
  document.getElementById(id).classList.add('active');
  document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.nav===id));
- window.scrollTo({top:0,behavior:'smooth'});render();
+ window.scrollTo({top:0,behavior:'smooth'});
+document.addEventListener('click',function(e){
+  const btn=e.target.closest('.history-delete');
+  if(!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  deleteHistoryItem(btn.dataset.deleteKind,btn.dataset.deleteId);
+});
+
+
+setTimeout(addHistoryDeleteButtons,0);
+new MutationObserver(()=>setTimeout(addHistoryDeleteButtons,0)).observe(document.body,{childList:true,subtree:true});
+
+render();
 }
 function toggleTheme(){
  const dark=!document.documentElement.classList.contains('dark');
@@ -526,6 +539,79 @@ function addCustomMaintenance(id){
  const date=cvMaintDate.value,type=cvMaintType.value.trim(),cost=+cvMaintCost.value,odo=+cvMaintOdo.value||0;
  if(!date||!type||!cost){toast('Complete date, service and cost');return}
  d.maint.push({date,vehicle:id,type,cost,odo});save();openCustomVehicle(id);toast('Maintenance added');
+}
+
+
+/* Reliable per-row history deletion */
+function addHistoryDeleteButtons(){
+  const specs=[
+    ['fuelHistory','fuel',d.fuel],
+    ['chargeHistory','charge',d.charge],
+    ['mileageHistory','mileage',d.mileage],
+    ['aMaintHistory','maintenance',d.maint],
+    ['vMaintHistory','maintenance',d.maint],
+    ['maintHistory','maintenance',d.maint]
+  ];
+  specs.forEach(([id,kind,list])=>{
+    const body=document.getElementById(id);
+    if(!body || !Array.isArray(list)) return;
+    const rows=[...body.querySelectorAll('tr')].filter(r=>!r.querySelector('.history-delete'));
+    if(!rows.length) return;
+
+    // Renderers are newest-first, so match each visible data row to the
+    // corresponding sorted record used by the history display.
+    let records=[...list];
+    if(kind==='maintenance'){
+      records=records.filter(x=>{
+        if(id==='aMaintHistory') return x.vehicle==='Audi A7';
+        if(id==='vMaintHistory') return x.vehicle==='Cadillac VISTIQ';
+        return true;
+      });
+    }
+    records.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+
+    rows.forEach((row,i)=>{
+      const rec=records[i];
+      if(!rec || !rec.id) return;
+      const cell=document.createElement('td');
+      cell.className='history-action';
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='history-delete';
+      btn.dataset.deleteKind=kind;
+      btn.dataset.deleteId=rec.id;
+      btn.setAttribute('aria-label','Delete history entry');
+      btn.textContent='×';
+      cell.appendChild(btn);
+      row.appendChild(cell);
+    });
+  });
+}
+
+function deleteHistoryItem(kind,id){
+  const collections={fuel:d.fuel,charge:d.charge,mileage:d.mileage,maintenance:d.maint};
+  const list=collections[kind];
+  if(!Array.isArray(list)) return;
+  const index=list.findIndex(x=>String(x.id)===String(id));
+  if(index<0) return;
+
+  const labels={fuel:'fuel fill-up',charge:'charging session',mileage:'mileage reading',maintenance:'maintenance record'};
+  if(!window.confirm('Delete this '+labels[kind]+'?')) return;
+
+  list.splice(index,1);
+
+  if(kind==='mileage'){
+    const latest=[...d.mileage].sort((a,b)=>{
+      const date=String(a.date).localeCompare(String(b.date));
+      return date || Number(a.odo||0)-Number(b.odo||0);
+    }).pop();
+    d.settings.vodo=latest ? Number(latest.odo||0) : 0;
+  }
+
+  if(!save()) return;
+  render();
+  setTimeout(addHistoryDeleteButtons,0);
+  toast(labels[kind].charAt(0).toUpperCase()+labels[kind].slice(1)+' deleted');
 }
 
 function renderCustomVehicles(){
