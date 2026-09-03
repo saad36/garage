@@ -426,24 +426,60 @@
   }
 
   function costKmByMonth(){
-    const keys=monthlyKeys(), spend=monthlySpendMap(), a=monthlyMileageMap("audi"), v=monthlyMileageMap("vistiq");
-    return keys.map(k=>({label:k,value:(a[k]+v[k])>0?spend[k]/(a[k]+v[k]):null}));
+    const keys = monthlyKeys();
+    const spend = monthlySpendMap();
+    const mileage = Object.fromEntries(keys.map(k => [k, 0]));
+    // Use the same odometer histories that power the mileage charts.
+    ["audi", "vistiq"].forEach(vehicle => {
+      const rows = allMileage(vehicle);
+      for (let i = 1; i < rows.length; i++) {
+        const d = num(rows[i].odometer) - num(rows[i-1].odometer);
+        const k = String(rows[i].date || "").slice(0,7);
+        if (d > 0 && k in mileage) mileage[k] += d;
+      }
+    });
+    // If an Audi has no standalone mileage history, derive distance from
+    // its fuel odometer readings (legacy-compatible behavior).
+    if (!allMileage("audi").length && state.fuel.length) {
+      const f = state.fuel.slice().sort((a,b) => dateMs(a.date)-dateMs(b.date) || num(a.odometer)-num(b.odometer));
+      for (let i = 1; i < f.length; i++) {
+        const d = num(f[i].odometer) - num(f[i-1].odometer);
+        const k = String(f[i].date || "").slice(0,7);
+        if (d > 0 && k in mileage) mileage[k] += d;
+      }
+    }
+    return keys.map(k => ({
+      label: k,
+      value: mileage[k] > 0 && spend[k] > 0 ? spend[k] / mileage[k] : null
+    }));
   }
 
   function leasePaceByMonth(){
-    const keys=monthlyKeys();
-    const start=state.settings.leaseStart, end=state.settings.leaseEnd, allowance=num(state.settings.allowance);
-    const startMs=dateMs(start), endMs=dateMs(end), span=Math.max(1,endMs-startMs);
-    const rows=allMileage("vistiq");
-    const first=num(state.settings.leaseOdo);
-    return keys.map(k=>{
-      const monthEnd=new Date(`${k}-01T12:00:00`); monthEnd.setMonth(monthEnd.getMonth()+1); monthEnd.setDate(0);
-      const date=monthEnd.toISOString().slice(0,10);
-      const ms=Math.min(endMs,Math.max(startMs,dateMs(date)));
-      const target=allowance*((ms-startMs)/span);
-      let actual=first;
-      rows.forEach(r=>{if(dateMs(r.date)<=ms)actual=Math.max(actual,num(r.odometer));});
-      return {label:k,actual:Math.max(0,actual-first),target:Math.max(0,target)};
+    const keys = monthlyKeys();
+    const s = state.settings || {};
+    const start = s.leaseStart;
+    const end = s.leaseEnd;
+    const allowance = num(s.allowance);
+    const first = num(s.leaseOdo);
+    if (!start || !end || !allowance || !Number.isFinite(dateMs(start)) || !Number.isFinite(dateMs(end)) || dateMs(end) <= dateMs(start)) {
+      return [];
+    }
+    const startMs = dateMs(start), endMs = dateMs(end);
+    const span = Math.max(1, endMs - startMs);
+    const rows = allMileage("vistiq");
+    return keys.map(k => {
+      const nextMonth = new Date(`${k}-01T12:00:00`);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      nextMonth.setDate(0);
+      const date = nextMonth.toISOString().slice(0,10);
+      const ms = Math.min(endMs, Math.max(startMs, dateMs(date)));
+      const target = allowance * Math.max(0, Math.min(1, (ms - startMs) / span));
+      let actualOdo = first;
+      for (const r of rows) {
+        const rMs = dateMs(r.date);
+        if (Number.isFinite(rMs) && rMs <= ms) actualOdo = Math.max(actualOdo, num(r.odometer));
+      }
+      return {label:k, actual:Math.max(0, actualOdo-first), target:Math.max(0, target)};
     });
   }
 
@@ -679,12 +715,31 @@
   }
 
   function drawAllCharts(){
-    drawLineChart("garageMileageChart", mileageByMonth("vistiq"), "km");
-    drawLineChart("garageAudiMileageChart", mileageByMonth("audi"), "km");
-    drawLineChart("garageSpendChart", fuelMonthSpend(), "$", true);
-    drawLineChart("garageEfficiencyChart", efficiencyByMonth(), "L/100 km");
-    drawLineChart("garageCostKmChart", costKmByMonth(), "$ / km", true);
-    drawMultiLineChart("leasePaceChart", leasePaceByMonth());
+    // Render each chart independently. A problem with one metric must never
+    // prevent the remaining dashboard charts from rendering.
+    const jobs = [
+      ["garageMileageChart", () => drawLineChart("garageMileageChart", mileageByMonth("vistiq"), "km")],
+      ["garageAudiMileageChart", () => drawLineChart("garageAudiMileageChart", mileageByMonth("audi"), "km")],
+      ["garageSpendChart", () => drawLineChart("garageSpendChart", fuelMonthSpend(), "$", true)],
+      ["garageEfficiencyChart", () => drawLineChart("garageEfficiencyChart", efficiencyByMonth(), "L/100 km")],
+      ["garageCostKmChart", () => drawLineChart("garageCostKmChart", costKmByMonth(), "$ / km", true)],
+      ["leasePaceChart", () => drawMultiLineChart("leasePaceChart", leasePaceByMonth())]
+    ];
+    jobs.forEach(([id, fn]) => {
+      try { fn(); }
+      catch (e) {
+        console.error("Garage chart failed:", id, e);
+        const canvas = $(id);
+        if (canvas) {
+          const c = chartBase(canvas);
+          c.ctx.fillStyle = c.muted;
+          c.ctx.font = "12px system-ui";
+          c.ctx.textAlign = "center";
+          c.ctx.textBaseline = "middle";
+          c.ctx.fillText("No data yet", c.w / 2, c.h / 2);
+        }
+      }
+    });
   }
 
   function chartLabel(label, value, unit, money){
@@ -719,11 +774,12 @@
 
   function drawMultiLineChart(id,data){
     const canvas=$(id);if(!canvas)return;const c=chartBase(canvas),{ctx,w,h,muted,line,accent,pad}=c;
-    const vals=data.flatMap(x=>[x.actual,x.target]).filter(Number.isFinite);
+    data = (data || []).filter(x => Number.isFinite(Number(x.actual)) && Number.isFinite(Number(x.target)));
+    const vals=data.flatMap(x=>[Number(x.actual),Number(x.target)]).filter(Number.isFinite);
     if(!vals.length){ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("No data yet",w/2,h/2);return;}
     const max=Math.max(...vals,1), yMax=max*1.14, plotW=w-pad.l-pad.r,plotH=h-pad.t-pad.b;
     for(let i=0;i<4;i++){const y=pad.t+plotH*i/3;ctx.strokeStyle=line;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();ctx.fillStyle=muted;ctx.font="10px system-ui";ctx.textAlign="right";ctx.textBaseline="middle";ctx.fillText(fmtNum(yMax-(yMax/3)*i,0),pad.l-6,y);}
-    const makePts=(key,series)=>data.map((x,i)=>({x:pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1)),y:pad.t+(yMax-x[key])/yMax*plotH,value:x[key],label:x.label,series}));
+    const makePts=(key,series)=>data.map((x,i)=>({x:pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1)),y:pad.t+(yMax-Number(x[key]))/yMax*plotH,value:Number(x[key]),label:x.label,series}));
     const actual=makePts("actual","Actual"),target=makePts("target","Target");
     [[actual,accent,2],[target,muted,1.5]].forEach(([pts,col,lw])=>{ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();pts.forEach(p=>{ctx.fillStyle=col;ctx.beginPath();ctx.arc(p.x,p.y,2.7,0,Math.PI*2);ctx.fill();});});
     ctx.font="10px system-ui";actual.forEach(p=>{ctx.fillStyle=accent;ctx.textAlign="center";ctx.textBaseline="bottom";ctx.fillText(fmtNum(p.value,0),p.x,Math.max(10,p.y-6));});
