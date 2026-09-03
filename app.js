@@ -681,7 +681,27 @@
     pts.forEach(p=>{if(!p){started=false;return;} if(!started){ctx.moveTo(p.x,p.y);started=true;}else ctx.lineTo(p.x,p.y);});
     ctx.stroke();
 
-    pts.forEach((p,i)=>{if(!p)return;ctx.fillStyle=accent;ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();});
+    // Points + exact value labels. Labels are shown for every populated month
+    // (the chart currently spans at most 12 monthly buckets), so the actual
+    // number is visible without needing to estimate from the y-axis.
+    pts.forEach((p,i)=>{
+      if(!p)return;
+      ctx.fillStyle=accent;
+      ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();
+
+      const raw=Number(data[i].value);
+      const valueLabel=money?fmtMoney(raw):fmtNum(raw, unit==="L/100 km"?1:0);
+      ctx.font="600 10px system-ui";
+      ctx.textAlign="center";
+      ctx.textBaseline="bottom";
+      const labelY=Math.max(10,p.y-7);
+      // Small background keeps labels readable when they sit over the line/grid.
+      const tw=ctx.measureText(valueLabel).width;
+      ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue("--card").trim()||"#111827";
+      ctx.fillRect(p.x-tw/2-3,labelY-10,tw+6,12);
+      ctx.fillStyle=textColor;
+      ctx.fillText(valueLabel,p.x,labelY);
+    });
     ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="top";
     data.forEach((x,i)=>{
       if(i%Math.max(1,Math.ceil(data.length/6))!==0 && i!==data.length-1)return;
