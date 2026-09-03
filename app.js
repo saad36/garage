@@ -753,7 +753,7 @@
     canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
     const ctx=canvas.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
     const style=getComputedStyle(document.documentElement);
-    return {ctx,w,h,muted:style.getPropertyValue("--muted").trim()||"#94a3b8",line:style.getPropertyValue("--line").trim()||"#263244",text:style.getPropertyValue("--text").trim()||"#f8fafc",accent:style.getPropertyValue("--blue").trim()||"#60a5fa",pad:{l:42,r:30,t:28,b:30}};
+    return {ctx,w,h,muted:style.getPropertyValue("--muted").trim()||"#94a3b8",line:style.getPropertyValue("--line").trim()||"#263244",text:style.getPropertyValue("--text").trim()||"#f8fafc",accent:style.getPropertyValue("--blue").trim()||"#60a5fa",pad:{l:42,r:68,t:28,b:30}};
   }
 
   function monthLabel(label){const [yy,mm]=label.split("-");return new Date(Number(yy),Number(mm)-1,1).toLocaleDateString("en-CA",{month:"short"});}
@@ -767,7 +767,7 @@
     for(let i=0;i<4;i++){const y=pad.t+plotH*i/3;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();const v=yMax-(yMax-yMin)*i/3;ctx.textAlign="right";ctx.textBaseline="middle";ctx.fillText(money?fmtMoney(v):fmtNum(v,v>=100?0:1),pad.l-6,y);}
     const pts=data.map((x,i)=>{if(x.value===null)return null;const v=Number(x.value);return {x:pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1)),y:pad.t+(yMax-v)/(yMax-yMin)*plotH,value:v,label:x.label};});
     ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.beginPath();let started=false;pts.forEach(p=>{if(!p){started=false;return;}if(!started){ctx.moveTo(p.x,p.y);started=true;}else ctx.lineTo(p.x,p.y);});ctx.stroke();
-    ctx.font="10px system-ui"; pts.forEach(p=>{if(!p)return;ctx.fillStyle=accent;ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue("--text").trim()||"#f8fafc";ctx.textAlign="center";ctx.textBaseline="bottom";const labelX=p.x> w-42 ? w-42 : p.x; ctx.textAlign=p.x> w-42 ? "right" : "center"; ctx.fillText(chartLabel(p.label,p.value,unit,money),labelX,Math.max(10,p.y-7));});
+    ctx.font="10px system-ui"; pts.forEach(p=>{if(!p)return;ctx.fillStyle=accent;ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue("--text").trim()||"#f8fafc";ctx.textAlign="center";ctx.textBaseline="bottom";const labelX=p.x> w-85 ? w-68 : p.x; ctx.textAlign=p.x> w-85 ? "right" : "center"; ctx.fillText(chartLabel(p.label,p.value,unit,money),labelX,Math.max(10,p.y-7));});
     ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="top";data.forEach((x,i)=>{if(i%Math.max(1,Math.ceil(data.length/6))!==0&&i!==data.length-1)return;const xx=pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1));ctx.fillText(monthLabel(x.label),xx,h-pad.b+9);});
     attachChartTooltip(canvas,()=>pts.filter(Boolean),p=>`${monthLabel(p.label)} · ${chartLabel(p.label,p.value,unit,money)}`);
   }
@@ -782,7 +782,7 @@
     const makePts=(key,series)=>data.map((x,i)=>({x:pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1)),y:pad.t+(yMax-Number(x[key]))/yMax*plotH,value:Number(x[key]),label:x.label,series}));
     const actual=makePts("actual","Actual"),target=makePts("target","Target");
     [[actual,accent,2],[target,muted,1.5]].forEach(([pts,col,lw])=>{ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();pts.forEach(p=>{ctx.fillStyle=col;ctx.beginPath();ctx.arc(p.x,p.y,2.7,0,Math.PI*2);ctx.fill();});});
-    ctx.font="10px system-ui";actual.forEach(p=>{ctx.fillStyle=accent;ctx.textAlign="center";ctx.textBaseline="bottom";const labelX=p.x> w-42 ? w-42 : p.x; ctx.textAlign=p.x> w-42 ? "right" : "center"; ctx.fillText(fmtNum(p.value,0),labelX,Math.max(10,p.y-6));});
+    ctx.font="10px system-ui";actual.forEach(p=>{ctx.fillStyle=accent;ctx.textAlign="center";ctx.textBaseline="bottom";const labelX=p.x> w-85 ? w-68 : p.x; ctx.textAlign=p.x> w-85 ? "right" : "center"; ctx.fillText(fmtNum(p.value,0),labelX,Math.max(10,p.y-6));});
     ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="top";data.forEach((x,i)=>{if(i%Math.max(1,Math.ceil(data.length/6))!==0&&i!==data.length-1)return;ctx.fillText(monthLabel(x.label),actual[i].x,h-pad.b+9);});
     ctx.textAlign="left";ctx.fillStyle=accent;ctx.fillText("● Actual",pad.l,10);ctx.fillStyle=muted;ctx.fillText("● Target",pad.l+65,10);
     attachChartTooltip(canvas,()=>actual.concat(target),p=>`${monthLabel(p.label)} · ${p.series}: ${fmtNum(p.value,0)} km`);
@@ -954,18 +954,26 @@
     reader.readAsText(file);
   }
 
-  function applySystemTheme(){
-    const dark=window.matchMedia?.("(prefers-color-scheme: dark)")?.matches===true;
+  function applyTheme(){
+    const mode=localStorage.getItem("garageTheme")||"system";
+    const dark=mode==="dark" || (mode==="system" && window.matchMedia?.("(prefers-color-scheme: dark)")?.matches===true);
     document.documentElement.classList.toggle("dark",dark);
-    document.documentElement.classList.remove("light");
+    document.documentElement.classList.toggle("light",!dark);
     const meta=$("themeColorMeta");
     if(meta) meta.setAttribute("content",dark?"#090d13":"#f4f6f8");
+    const select=$("themeMode"); if(select) select.value=mode;
     requestAnimationFrame(()=>drawAllCharts());
   }
 
-  // Theme follows the phone/browser appearance automatically.
+  function applySystemTheme(){ applyTheme(); }
+  function setThemeMode(mode){
+    if(!["system","light","dark"].includes(mode)) mode="system";
+    localStorage.setItem("garageTheme",mode);
+    applyTheme();
+  }
   function toggleTheme(){
-    applySystemTheme();
+    const current=localStorage.getItem("garageTheme")||"system";
+    setThemeMode(current==="dark"?"light":"dark");
   }
 
   function openQuickCharge(){openModal("quickChargeModal");}
@@ -1012,7 +1020,7 @@
   Object.assign(window,{
     show,toast,addMileage,addFuel,addCharge,addMaintenanceVehicle,deleteHistory,
     calculateWhatIf,setWhatIf,saveSettings,openSettings,closeSettings,exportData,importData,
-    toggleTheme,openQuickCharge,closeQuickCharge,saveQuickCharge,openQuickFuel,closeQuickFuel,
+    toggleTheme,setThemeMode,openQuickCharge,closeQuickCharge,saveQuickCharge,openQuickFuel,closeQuickFuel,
     saveQuickFuel,openInstall,closeInstall,installGarage,openVehicleModal,closeVehicleModal,
     saveVehicleFromModal,openAddVehicle,closeCustomVehicle
   });
@@ -1024,7 +1032,7 @@
     applySystemTheme();
     const media=window.matchMedia?.("(prefers-color-scheme: dark)");
     if(media){
-      const onThemeChange=()=>applySystemTheme();
+      const onThemeChange=()=>{if((localStorage.getItem("garageTheme")||"system")==="system") applyTheme();};
       if(media.addEventListener) media.addEventListener("change",onThemeChange);
       else if(media.addListener) media.addListener(onThemeChange);
     }
