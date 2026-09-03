@@ -137,13 +137,13 @@
   function normalizeChargeRecord(raw, index = 0) {
     if (!raw || typeof raw !== "object") return null;
     const date = dateISO(first(raw, ["date","day","loggedAt","timestamp"]));
-    const kwh = num(first(raw, ["kwh","kWh","energy","energyAdded","amount"]), NaN);
+    const kwh = num(first(raw, ["kwh","kWh","energy","energyAdded","energyKwh","energy_kwh","kwhAdded","kwhAddedTotal","amount"]), NaN);
     if (!date || !Number.isFinite(kwh)) return null;
 
     // IMPORTANT: an explicit 0 is a valid override and must not be replaced by the default rate.
     const hasRate = ["rate","electricityRate","pricePerKwh","price","costPerKwh"].some(k => has(raw,k));
     const rateRaw = first(raw, ["rate","electricityRate","pricePerKwh","costPerKwh","price"], undefined);
-    const costRaw = first(raw, ["cost","spend","total","amount"], undefined);
+    const costRaw = first(raw, ["cost","spend","total","totalCost","chargingCost","amount"], undefined);
     return {
       id: String(raw.id || raw._id || `c-${date}-${kwh}-${index}`),
       date, kwh,
@@ -931,7 +931,7 @@
   }
 
   function addCharge(){
-    const date=$("vDate")?.value, kwh=num($("vEnergy")?.value,NaN), rateField=$("vRate")?.value;
+    const date=$("vDate")?.value, kwh=num($("vKwh")?.value,NaN), rateField=$("vRate")?.value;
     let bad=false;
     if(!date){error("vDateErr",true);bad=true}else error("vDateErr",false);
     if(!Number.isFinite(kwh)){error("vKwhErr",true);bad=true}else error("vKwhErr",false);
