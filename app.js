@@ -753,37 +753,118 @@
     canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
     const ctx=canvas.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
     const style=getComputedStyle(document.documentElement);
-    return {ctx,w,h,muted:style.getPropertyValue("--muted").trim()||"#94a3b8",line:style.getPropertyValue("--line").trim()||"#263244",text:style.getPropertyValue("--text").trim()||"#f8fafc",accent:style.getPropertyValue("--blue").trim()||"#60a5fa",pad:{l:42,r:68,t:28,b:30}};
+    return {ctx,w,h,muted:style.getPropertyValue("--muted").trim()||"#94a3b8",line:style.getPropertyValue("--line").trim()||"#263244",text:style.getPropertyValue("--text").trim()||"#f8fafc",accent:style.getPropertyValue("--blue").trim()||"#60a5fa",pad:{l:42,r:18,t:28,b:30}};
   }
 
   function monthLabel(label){const [yy,mm]=label.split("-");return new Date(Number(yy),Number(mm)-1,1).toLocaleDateString("en-CA",{month:"short"});}
 
   function drawLineChart(id,data,unit,money=false){
-    const canvas=$(id); if(!canvas)return; const c=chartBase(canvas),{ctx,w,h,muted,line,accent,pad}=c;
+    const canvas=$(id); if(!canvas)return;
+    const c=chartBase(canvas),{ctx,w,h,muted,line,accent,pad}=c;
     const valid=data.filter(x=>x.value!==null&&Number.isFinite(Number(x.value)));
-    ctx.font="10px system-ui"; ctx.strokeStyle=line; ctx.fillStyle=muted; ctx.lineWidth=1;
+    ctx.font="10px system-ui";
+    ctx.strokeStyle=line;ctx.fillStyle=muted;ctx.lineWidth=1;
     if(!valid.length){ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("No data yet",w/2,h/2);return;}
-    const max=Math.max(...valid.map(x=>Number(x.value)),0), min=Math.min(...valid.map(x=>Number(x.value)),0), range=max-min||1, yMax=max+range*.16, yMin=Math.max(0,min-range*.08), plotW=w-pad.l-pad.r, plotH=h-pad.t-pad.b;
-    for(let i=0;i<4;i++){const y=pad.t+plotH*i/3;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();const v=yMax-(yMax-yMin)*i/3;ctx.textAlign="right";ctx.textBaseline="middle";ctx.fillText(money?fmtMoney(v):fmtNum(v,v>=100?0:1),pad.l-6,y);}
-    const pts=data.map((x,i)=>{if(x.value===null)return null;const v=Number(x.value);return {x:pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1)),y:pad.t+(yMax-v)/(yMax-yMin)*plotH,value:v,label:x.label};});
-    ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.beginPath();let started=false;pts.forEach(p=>{if(!p){started=false;return;}if(!started){ctx.moveTo(p.x,p.y);started=true;}else ctx.lineTo(p.x,p.y);});ctx.stroke();
-    ctx.font="10px system-ui"; pts.forEach(p=>{if(!p)return;ctx.fillStyle=accent;ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue("--text").trim()||"#f8fafc";ctx.textAlign="center";ctx.textBaseline="bottom";const labelX=p.x> w-85 ? w-68 : p.x; ctx.textAlign=p.x> w-85 ? "right" : "center"; ctx.fillText(chartLabel(p.label,p.value,unit,money),labelX,Math.max(10,p.y-7));});
-    ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="top";data.forEach((x,i)=>{if(i%Math.max(1,Math.ceil(data.length/6))!==0&&i!==data.length-1)return;const xx=pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1));ctx.fillText(monthLabel(x.label),xx,h-pad.b+9);});
+
+    const values=valid.map(x=>Number(x.value));
+    const max=Math.max(...values,0), min=Math.min(...values,0);
+    const range=max-min;
+    // Give near-zero/single-value charts a useful visual scale instead of
+    // producing a nearly flat or microscopic graph.
+    const scale=Math.max(range, Math.abs(max)*0.12, money ? 1 : (unit==="L/100 km" ? 1 : 10), 1);
+    const yMax=max+scale*.16, yMin=Math.max(0,min-scale*.08);
+    const plotW=w-pad.l-pad.r, plotH=h-pad.t-pad.b;
+
+    for(let i=0;i<4;i++){
+      const y=pad.t+plotH*i/3;
+      ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();
+      const v=yMax-(yMax-yMin)*i/3;
+      ctx.textAlign="right";ctx.textBaseline="middle";
+      ctx.fillText(money?fmtMoney(v):fmtNum(v,v>=100?0:1),pad.l-6,y);
+    }
+
+    const pts=data.map((x,i)=>{
+      if(x.value===null || !Number.isFinite(Number(x.value)))return null;
+      const v=Number(x.value);
+      return {x:pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1)),y:pad.t+(yMax-v)/(yMax-yMin)*plotH,value:v,label:x.label};
+    });
+
+    ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.beginPath();
+    let started=false;
+    pts.forEach(p=>{if(!p){started=false;return;}if(!started){ctx.moveTo(p.x,p.y);started=true;}else ctx.lineTo(p.x,p.y);});
+    ctx.stroke();
+
+    // Draw points and labels without stacking identical/nearby labels on top
+    // of one another. Edge labels get a safe inset from the canvas boundary.
+    ctx.font="10px system-ui";
+    let previousLabel=null;
+    pts.forEach((p,i)=>{
+      if(!p)return;
+      ctx.fillStyle=accent;ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();
+      const label=chartLabel(p.label,p.value,unit,money);
+      const isZero = Math.abs(p.value) < 0.000001;
+      const sameAsPrevious=previousLabel && previousLabel.label===label && Math.abs(previousLabel.x-p.x)<55 && Math.abs(previousLabel.y-p.y)<22;
+      // Repeated zero months add visual noise without conveying new information.
+      // Keep the first zero and the final zero so the series remains understandable.
+      const nextValid = pts.slice(i+1).find(Boolean);
+      const laterNonZero = pts.slice(i+1).some(q=>q && Math.abs(q.value)>0.000001);
+      if(sameAsPrevious || (isZero && laterNonZero && previousLabel?.isZero))return;
+      ctx.fillStyle=c.text;ctx.textBaseline="bottom";
+      const nearRight=p.x>w-62, nearLeft=p.x<pad.l+24;
+      let labelX=p.x, align="center";
+      if(nearRight){labelX=w-pad.r-3;align="right";}
+      else if(nearLeft){labelX=pad.l+4;align="left";}
+      ctx.textAlign=align;
+      let labelY=p.y-7;
+      if(previousLabel && Math.abs(previousLabel.x-p.x)<42 && Math.abs(previousLabel.y-labelY)<18){
+        labelY=Math.max(14,labelY-16);
+      }
+      ctx.fillText(label,labelX,Math.max(12,labelY));
+      previousLabel={label,x:p.x,y:labelY,isZero};
+    });
+
+    ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="top";
+    data.forEach((x,i)=>{
+      if(i%Math.max(1,Math.ceil(data.length/6))!==0&&i!==data.length-1)return;
+      const xx=pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1));
+      ctx.fillText(monthLabel(x.label),Math.max(pad.l,Math.min(w-pad.r,xx)),h-pad.b+9);
+    });
     attachChartTooltip(canvas,()=>pts.filter(Boolean),p=>`${monthLabel(p.label)} · ${chartLabel(p.label,p.value,unit,money)}`);
   }
 
   function drawMultiLineChart(id,data){
-    const canvas=$(id);if(!canvas)return;const c=chartBase(canvas),{ctx,w,h,muted,line,accent,pad}=c;
-    data = (data || []).filter(x => Number.isFinite(Number(x.actual)) && Number.isFinite(Number(x.target)));
+    const canvas=$(id);if(!canvas)return;
+    const c=chartBase(canvas),{ctx,w,h,muted,line,accent,pad}=c;
+    data=(data||[]).filter(x=>Number.isFinite(Number(x.actual))&&Number.isFinite(Number(x.target)));
     const vals=data.flatMap(x=>[Number(x.actual),Number(x.target)]).filter(Number.isFinite);
     if(!vals.length){ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("No data yet",w/2,h/2);return;}
-    const max=Math.max(...vals,1), yMax=max*1.14, plotW=w-pad.l-pad.r,plotH=h-pad.t-pad.b;
+    const max=Math.max(...vals,1), yMax=Math.max(max*1.14,1), plotW=w-pad.l-pad.r,plotH=h-pad.t-pad.b;
     for(let i=0;i<4;i++){const y=pad.t+plotH*i/3;ctx.strokeStyle=line;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();ctx.fillStyle=muted;ctx.font="10px system-ui";ctx.textAlign="right";ctx.textBaseline="middle";ctx.fillText(fmtNum(yMax-(yMax/3)*i,0),pad.l-6,y);}
     const makePts=(key,series)=>data.map((x,i)=>({x:pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1)),y:pad.t+(yMax-Number(x[key]))/yMax*plotH,value:Number(x[key]),label:x.label,series}));
     const actual=makePts("actual","Actual"),target=makePts("target","Target");
     [[actual,accent,2],[target,muted,1.5]].forEach(([pts,col,lw])=>{ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();pts.forEach(p=>{ctx.fillStyle=col;ctx.beginPath();ctx.arc(p.x,p.y,2.7,0,Math.PI*2);ctx.fill();});});
-    ctx.font="10px system-ui";actual.forEach(p=>{ctx.fillStyle=accent;ctx.textAlign="center";ctx.textBaseline="bottom";const labelX=p.x> w-85 ? w-68 : p.x; ctx.textAlign=p.x> w-85 ? "right" : "center"; ctx.fillText(fmtNum(p.value,0),labelX,Math.max(10,p.y-6));});
-    ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="top";data.forEach((x,i)=>{if(i%Math.max(1,Math.ceil(data.length/6))!==0&&i!==data.length-1)return;ctx.fillText(monthLabel(x.label),actual[i].x,h-pad.b+9);});
+
+    ctx.font="10px system-ui";
+    actual.forEach((p,i)=>{
+      ctx.fillStyle=accent;ctx.textBaseline="bottom";
+      const nearRight=p.x>w-55;
+      let labelX=nearRight?w-pad.r-3:p.x;
+      let align=nearRight?"right":"center";
+      // Stagger Actual labels when Actual and Target converge at the end.
+      const targetPoint=target[i];
+      let labelY=p.y-7;
+      if(targetPoint && Math.abs(targetPoint.x-p.x)<20 && Math.abs(targetPoint.y-p.y)<22) labelY=p.y-22;
+      ctx.textAlign=align;ctx.fillText(fmtNum(p.value,0),labelX,Math.max(12,labelY));
+    });
+    // Target's final value is important too; place it on the opposite side
+    // when it would collide with Actual.
+    const last=target[target.length-1], lastActual=actual[actual.length-1];
+    if(last){
+      ctx.fillStyle=muted;ctx.textBaseline="bottom";
+      const collide=lastActual&&Math.abs(lastActual.x-last.x)<20&&Math.abs(lastActual.y-last.y)<22;
+      ctx.textAlign="right";ctx.fillText(fmtNum(last.value,0),w-pad.r-3,Math.max(12,last.y+(collide?18:-7)));
+    }
+    ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="top";data.forEach((x,i)=>{if(i%Math.max(1,Math.ceil(data.length/6))!==0&&i!==data.length-1)return;ctx.fillText(monthLabel(x.label),Math.max(pad.l,Math.min(w-pad.r,actual[i].x)),h-pad.b+9);});
     ctx.textAlign="left";ctx.fillStyle=accent;ctx.fillText("● Actual",pad.l,10);ctx.fillStyle=muted;ctx.fillText("● Target",pad.l+65,10);
     attachChartTooltip(canvas,()=>actual.concat(target),p=>`${monthLabel(p.label)} · ${p.series}: ${fmtNum(p.value,0)} km`);
   }
