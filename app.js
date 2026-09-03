@@ -757,8 +757,7 @@
     // Render each chart independently. A problem with one metric must never
     // prevent the remaining dashboard charts from rendering.
     const jobs = [
-      ["garageMileageChart", () => drawLineChart("garageMileageChart", mileageByMonth("vistiq"), "km")],
-      ["garageAudiMileageChart", () => drawLineChart("garageAudiMileageChart", mileageByMonth("audi"), "km")],
+      ["garageMileageChart", () => drawStackedMileageChart("garageMileageChart")],
       ["garageSpendChart", () => drawLineChart("garageSpendChart", fuelMonthSpend(), "$", true)],
       ["garageEfficiencyChart", () => drawLineChart("garageEfficiencyChart", efficiencyByMonth(), "L/100 km")],
       ["garageCostKmChart", () => drawLineChart("garageCostKmChart", costKmByMonth(), "$ / km", true)],
@@ -796,6 +795,50 @@
   }
 
   function monthLabel(label){const [yy,mm]=label.split("-");return new Date(Number(yy),Number(mm)-1,1).toLocaleDateString("en-CA",{month:"short"});}
+
+  function drawStackedMileageChart(id){
+    const canvas=$(id); if(!canvas)return;
+    const c=chartBase(canvas),{ctx,w,h,muted,line,accent,pad}=c;
+    const keys=monthlyKeys();
+    const audiMap=monthlyMileageMap("audi");
+    const vistiqMap=monthlyMileageMap("vistiq");
+    const rows=keys.map(k=>({label:k,audi:Number(audiMap[k]||0),vistiq:Number(vistiqMap[k]||0)}));
+    const totals=rows.map(r=>r.audi+r.vistiq);
+    const max=Math.max(...totals,0);
+    if(!max){
+      ctx.fillStyle=muted;ctx.font="12px system-ui";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("No mileage data yet",w/2,h/2);return;
+    }
+    const plotW=w-pad.l-pad.r, plotH=h-pad.t-pad.b;
+    const yMax=Math.max(max*1.16,10);
+    ctx.font="10px system-ui";ctx.strokeStyle=line;ctx.lineWidth=1;ctx.fillStyle=muted;
+    for(let i=0;i<4;i++){
+      const y=pad.t+plotH*i/3;
+      ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();
+      const v=yMax-(yMax/3)*i;
+      ctx.textAlign="right";ctx.textBaseline="middle";ctx.fillText(fmtNum(v,v>=100?0:1),pad.l-6,y);
+    }
+    const gap=Math.min(10,plotW/Math.max(1,rows.length*4));
+    const barW=Math.max(8,(plotW-gap*(rows.length-1))/rows.length);
+    const points=[];
+    rows.forEach((r,i)=>{
+      const x=pad.l+i*(barW+gap);
+      const hAudi=r.audi/yMax*plotH;
+      const hV=r.vistiq/yMax*plotH;
+      const baseY=pad.t+plotH;
+      const yAudi=baseY-hAudi;
+      const yV=yAudi-hV;
+      if(hAudi>0){ctx.fillStyle=muted;ctx.fillRect(x,yAudi,barW,hAudi);points.push({x:x+barW/2,y:yAudi,value:r.audi,label:r.label,series:"Audi"});}
+      if(hV>0){ctx.fillStyle=accent;ctx.fillRect(x,yV,barW,hV);points.push({x:x+barW/2,y:yV,value:r.vistiq,label:r.label,series:"VISTIQ"});}
+      ctx.fillStyle=c.text;ctx.textBaseline="bottom";ctx.font="10px system-ui";
+      // Label only non-zero segments. For very small segments, keep the value above the segment.
+      if(r.vistiq>0){ctx.textAlign="center";ctx.fillText(`${fmtNum(r.vistiq,0)} km`,x+barW/2,Math.max(12,yV-4));}
+      if(r.audi>0 && hAudi>=16){ctx.textAlign="center";ctx.fillText(`${fmtNum(r.audi,0)} km`,x+barW/2,Math.max(12,yAudi-4));}
+    });
+    ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="top";
+    rows.forEach((r,i)=>{if(i%Math.max(1,Math.ceil(rows.length/6))!==0&&i!==rows.length-1)return;const x=pad.l+i*(barW+gap)+barW/2;ctx.fillText(monthLabel(r.label),x,h-pad.b+9);});
+    ctx.textAlign="left";ctx.textBaseline="top";ctx.fillStyle=muted;ctx.fillText("● Audi",pad.l,8);ctx.fillStyle=accent;ctx.fillText("● VISTIQ",pad.l+52,8);
+    attachChartTooltip(canvas,()=>points,p=>`${monthLabel(p.label)} · ${p.series}: ${fmtNum(p.value,0)} km`);
+  }
 
   function drawLineChart(id,data,unit,money=false){
     const canvas=$(id); if(!canvas)return;
