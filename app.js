@@ -338,6 +338,20 @@
   }
 
   let state = findStoredState();
+
+  // If an older localStorage document still uses the exported "charge" key,
+  // migrate it immediately into the canonical "charging" array.
+  try {
+    const rawCurrent = localStorage.getItem(STORAGE_KEY);
+    if (rawCurrent) {
+      const parsedCurrent = JSON.parse(rawCurrent);
+      if (Array.isArray(parsedCurrent?.charge) && (!state.charging || state.charging.length === 0)) {
+        state.charging = parsedCurrent.charge.map(normalizeChargeRecord).filter(Boolean);
+        save();
+      }
+    }
+  } catch (_) {}
+
   let chartInstances = new Map();
   let deferredInstallPrompt = null;
 
@@ -1043,12 +1057,21 @@
       try{
         const parsed=JSON.parse(String(reader.result));
         const imported=normalizeState(parsed);
+
+        // Definitive support for the current exported backup format:
+        // charging sessions are stored in the top-level "charge" array.
+        if (Array.isArray(parsed?.charge)) {
+          imported.charging = parsed.charge
+            .map(normalizeChargeRecord)
+            .filter(Boolean);
+        }
+
         const total=imported.mileage.length+imported.fuel.length+imported.charging.length+imported.maintenance.length+imported.customVehicles.length;
         if(!total && !parsed.settings && !parsed.data && !parsed.garageData){
           throw new Error("This file does not look like a Garage JSON backup.");
         }
         state=imported; save(); renderAll(); closeSettings();
-        toast(`Imported ${total} Garage records.`);
+        toast(`Imported ${total} records · ${imported.charging.length} charging`);
       }catch(e){
         console.error(e);
         alert(`Could not import JSON: ${e.message||"Invalid JSON file."}`);
