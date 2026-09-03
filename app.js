@@ -212,10 +212,13 @@
 
     const toArray = value => {
       if (Array.isArray(value)) return value;
-      if (value && typeof value === "object") {
-        // Support keyed collections such as {id:{...}} as well as {audi:[...],vistiq:[...]}.
-        const vals = Object.values(value);
-        if (vals.every(v => v && typeof v === "object" && !Array.isArray(v))) return vals;
+      if (!value || typeof value !== "object") return [];
+      // Support keyed collections such as {id:{...}}.
+      const vals = Object.values(value);
+      if (vals.length && vals.every(v => v && typeof v === "object" && !Array.isArray(v))) return vals;
+      // Support wrappers such as {records:[...]}, {history:[...]}, {entries:[...]}.
+      for (const k of ["records","history","entries","items","data","logs","sessions","entries"]) {
+        if (Array.isArray(value[k])) return value[k];
       }
       return [];
     };
@@ -223,7 +226,7 @@
     // Current app shapes plus several legacy aliases.
     const mileageRaw = src.mileage ?? src.mileageHistory ?? src.mileages ?? src.odoHistory ?? [];
     const fuelRaw = src.fuel ?? src.fuelHistory ?? src.fuelLogs ?? src.fillups ?? [];
-    const chargeRaw = src.charging ?? src.chargingHistory ?? src.chargeHistory ?? src.charges ?? [];
+    const chargeRaw = src.charge ?? src.charging ?? src.chargingHistory ?? src.chargeHistory ?? src.charges ?? [];
     const maintRaw = src.maintenance ?? src.maintenanceHistory ?? src.maintenanceLogs ?? src.services ?? [];
 
     out.mileage = toArray(mileageRaw).map(normalizeMileageRecord).filter(Boolean);
@@ -261,12 +264,34 @@
       out.fuel.push(...toArray(rootAudi.fuel || rootAudi.fuelHistory || rootAudi.fillups).map(normalizeFuelRecord).filter(Boolean));
     }
     if (out.charging.length === 0) {
-      out.charging.push(...toArray(rootVistiq.charging || rootVistiq.chargeHistory || rootVistiq.charges).map(normalizeChargeRecord).filter(Boolean));
+      const nestedCharging =
+        rootVistiq.charging || rootVistiq.chargeHistory || rootVistiq.charges ||
+        (src.charging && typeof src.charging === "object" ? src.charging.vistiq : null) ||
+        (src.charging && typeof src.charging === "object" ? src.charging.VISTIQ : null) ||
+        (src.charging && typeof src.charging === "object" ? src.charging.records : null) ||
+        (src.charging && typeof src.charging === "object" ? src.charging.history : null);
+      out.charging.push(...toArray(nestedCharging).map(normalizeChargeRecord).filter(Boolean));
     }
     if (out.maintenance.length === 0) {
       for (const key of ["audi","vistiq"]) {
         const v = key==="audi" ? rootAudi : rootVistiq;
         out.maintenance.push(...toArray(v.maintenance || v.maintenanceHistory).map(r=>normalizeMaintenanceRecord({...r,vehicle:key})).filter(Boolean));
+      }
+    }
+
+    // Last-resort scan for common nested charging wrappers. This is intentionally
+    // limited to charging-related keys so unrelated objects are not interpreted as charges.
+    if (out.charging.length === 0) {
+      const candidates = [
+        src.charge, src.chargingHistory, src.chargeHistory, src.charges,
+        src.data?.charging, src.data?.chargeHistory,
+        src.backup?.charging, src.backup?.chargeHistory,
+        src.garage?.charging, src.garageData?.charging
+      ];
+      for (const candidate of candidates) {
+        const rows = toArray(candidate);
+        const normalized = rows.map(normalizeChargeRecord).filter(Boolean);
+        if (normalized.length) { out.charging.push(...normalized); break; }
       }
     }
 
