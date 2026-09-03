@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="./manifest.webmanifest">
 <title>My Garage</title>
-<meta name="garage-version" content="35.5">
+<meta name="garage-version" content="36.1">
 <style>
 :root{
  --bg:#f4f6f8;--surface:#fff;--surface2:#f8fafc;--text:#0f172a;--muted:#64748b;
@@ -26,7 +26,7 @@ button{cursor:pointer}
 .brand h1{font-size:28px;line-height:1.05;margin:0;font-weight:800;letter-spacing:-.5px}
 .brand p{margin:5px 0 0;color:var(--muted);font-size:13px}
 .header-actions{display:flex;gap:8px}
-.iconbtn{width:42px;height:42px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text);display:grid;place-items:center}
+.iconbtn{width:42px;height:42px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text);display:grid;place-items:center}.row-delete{border:0;background:transparent;color:var(--muted);width:30px;height:30px;border-radius:8px;font-size:20px;line-height:1;cursor:pointer}.row-delete:hover,.row-delete:focus{background:var(--surface2);color:var(--text)}
 .icon{width:19px;height:19px}
 .screen{display:none}.screen.active{display:block}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;margin-bottom:14px}
@@ -330,7 +330,7 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
  <div class="note">Downloads a complete JSON backup of your Garage data, including vehicle settings, fuel, charging, mileage and maintenance records.</div>
 </div></div>
 
-<script src="./app.js" defer></script>
+<script src="./app.js?v=36.1" defer></script>
 
 <div id="toast" class="toast" role="status"></div></body>
 </html>

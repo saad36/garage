@@ -1,758 +1,924 @@
-const LEGACY_KEY='garageDataV1';
-const DB_NAME='myGarageDB';
-const DB_VERSION=1;
-const DB_STORE='state';
-const SCHEMA_VERSION=2;
-const $=id=>document.getElementById(id);
+/* Garage v36.1
+   Data-first dashboard renderer.
+   - Uses one normalized localStorage document.
+   - Migrates common legacy shapes without discarding records.
+   - Dashboard KPIs/charts are derived from the same history arrays shown in vehicle pages.
+   - JSON import accepts both the current export and common legacy/wrapped backups.
+*/
+(() => {
+  "use strict";
 
-const initial={
- settings:{allowance:101847,vRate:.20,eRate:.098,leaseStart:'2026-04-27',leaseEnd:'2030-04-27',leaseOdo:0},
- fuel:[],charge:[],mileage:[],maint:[],vehicles:[],customFuel:[],customCharge:[]
-};
+  const STORAGE_KEY = "garageData";
+  const LEGACY_KEYS = [
+    STORAGE_KEY, "garage", "garageApp", "garageAppData",
+    "myGarage", "myGarageData", "garageDataV35", "garageDataV36"
+  ];
 
-function cloneInitial(){return JSON.parse(JSON.stringify(initial));}
-function newId(prefix){return prefix+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,9)}
-function ensureIds(arr,prefix){arr.forEach(x=>{if(!x.id)x.id=newId(prefix)})}
-function normalizeData(raw){
- const x=raw&&typeof raw==='object'?raw:cloneInitial();
- x.schemaVersion=SCHEMA_VERSION;
- x.settings={...initial.settings,...(x.settings||{})};
- x.fuel=Array.isArray(x.fuel)?x.fuel:[];
- x.charge=Array.isArray(x.charge)?x.charge:[];
- x.mileage=Array.isArray(x.mileage)?x.mileage:[];
- x.maint=Array.isArray(x.maint)?x.maint:[];
- x.vehicles=Array.isArray(x.vehicles)?x.vehicles:[];
- x.customFuel=Array.isArray(x.customFuel)?x.customFuel:[];
- x.customCharge=Array.isArray(x.customCharge)?x.customCharge:[];
- ensureIds(x.fuel,'fuel');ensureIds(x.charge,'charge');ensureIds(x.mileage,'mileage');ensureIds(x.maint,'maint');ensureIds(x.vehicles,'vehicle');ensureIds(x.customFuel,'fuel');ensureIds(x.customCharge,'charge');
- // One-time migration from the old duplicated odometer field. Mileage history
- // is canonical in v2, so preserve a higher legacy value as a dated reading.
- const legacyOdo=Number(x.settings.vodo||0);
- x.mileage.sort((a,b)=>String(a.date).localeCompare(String(b.date))||Number(a.odo||0)-Number(b.odo||0));
- const latest=x.mileage.length?Number(x.mileage[x.mileage.length-1].odo||0):0;
- if(legacyOdo>latest){x.mileage.push({id:newId('mileage'),date:today(),odo:legacyOdo})}
- delete x.settings.vodo;
- x.mileage.sort((a,b)=>String(a.date).localeCompare(String(b.date))||Number(a.odo||0)-Number(b.odo||0));
- return x;
-}
-function currentVistiqOdo(){
- const rows=[...d.mileage].sort((a,b)=>String(a.date).localeCompare(String(b.date))||Number(a.odo||0)-Number(b.odo||0));
- return rows.length?Number(rows[rows.length-1].odo||0):0;
-}
-function setCurrentVistiqMileage(odo,date=today()){
- const n=Number(odo||0);if(!Number.isFinite(n)||n<0)return false;
- const same=d.mileage.find(x=>x.date===date);
- if(same){same.odo=n}else d.mileage.push({id:newId('mileage'),date,odo:n});
- d.mileage.sort((a,b)=>String(a.date).localeCompare(String(b.date))||Number(a.odo||0)-Number(b.odo||0));
- return true;
-}
+  const $ = id => document.getElementById(id);
+  const esc = value => String(value ?? "")
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 
-class GarageStore{
- constructor(){this.db=null;this.queue=Promise.resolve()}
- open(){
-  if(this.db)return Promise.resolve(this.db);
-  return new Promise((resolve,reject)=>{
-   if(!('indexedDB' in window))return reject(new Error('IndexedDB unavailable'));
-   const req=indexedDB.open(DB_NAME,DB_VERSION);
-   req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(DB_STORE))db.createObjectStore(DB_STORE)};
-   req.onsuccess=()=>{this.db=req.result;this.db.onversionchange=()=>this.db.close();resolve(this.db)};
-   req.onerror=()=>reject(req.error||new Error('IndexedDB open failed'));
-  });
- }
- async load(){
-  const db=await this.open();
-  return await new Promise((resolve,reject)=>{
-   const tx=db.transaction(DB_STORE,'readonly');const req=tx.objectStore(DB_STORE).get('garage');
-   req.onsuccess=()=>resolve(req.result?.data||null);req.onerror=()=>reject(req.error);
-  });
- }
- async write(snapshot){
-  const copy=JSON.parse(JSON.stringify(snapshot));
-  const db=await this.open();
-  await new Promise((resolve,reject)=>{
-   const tx=db.transaction(DB_STORE,'readwrite');
-   tx.objectStore(DB_STORE).put({schemaVersion:SCHEMA_VERSION,savedAt:Date.now(),data:copy},'garage');
-   tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('IndexedDB write failed'));tx.onabort=()=>reject(tx.error||new Error('IndexedDB transaction aborted'));
-  });
- }
- save(snapshot){
-  const copy=JSON.parse(JSON.stringify(snapshot));
-  this.queue=this.queue.then(()=>this.write(copy)).catch(e=>console.warn('IndexedDB save failed',e));
-  return this.queue;
- }
-}
-const store=new GarageStore();
-let d=normalizeData(null);
-let storageReady=false;
+  const num = (value, fallback = 0) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  };
+  const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+  const first = (obj, keys, fallback = undefined) => {
+    for (const k of keys) {
+      if (obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
+    }
+    return fallback;
+  };
+  const id = () => `${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
 
-function readLegacy(){
- try{const raw=localStorage.getItem(LEGACY_KEY);return raw?normalizeData(JSON.parse(raw)):null}catch(e){console.warn('Legacy localStorage data unreadable',e);return null}
-}
-async function bootstrapStorage(){
- let loaded=null;
- try{loaded=await store.load()}catch(e){console.warn('IndexedDB unavailable; using localStorage fallback',e)}
- if(loaded){d=normalizeData(loaded)}
- else{
-  const legacy=readLegacy();
-  d=legacy||normalizeData(null);
-  try{await store.save(d)}catch(e){console.warn('Initial IndexedDB migration failed',e)}
- }
- storageReady=true;
- render();
-}
-function save(){
- try{
-  const snapshot=normalizeData(d);
-  d=snapshot;
-  // Keep a compact legacy mirror as an emergency recovery path. IndexedDB is
-  // the canonical store; this mirror is never read when IndexedDB has data.
-  localStorage.setItem(LEGACY_KEY,JSON.stringify(snapshot));
-  store.save(snapshot);
-  return true;
- }catch(e){console.error('Garage save failed',e);toast('Could not save garage data.');return false}
-}
-function today(){return new Date().toISOString().slice(0,10)}
-document.addEventListener('click',function(e){
- const nav=e.target.closest('.nav button[data-nav]');
- if(nav){e.preventDefault();e.stopPropagation();show(nav.dataset.nav);return}
- const del=e.target.closest('.history-delete');
- if(del){e.preventDefault();e.stopPropagation();deleteHistoryItem(del.dataset.deleteKind,del.dataset.deleteId);return}
-});
-
-function toggleTheme(){
- const dark=!document.documentElement.classList.contains('dark');
- document.documentElement.classList.toggle('dark',dark);localStorage.setItem('garageTheme',dark?'dark':'light');updateThemeIcon();
-}
-
-function deleteHistoryItem(kind,id){
- const collections={fuel:d.fuel,charge:d.charge,mileage:d.mileage,maintenance:d.maint};
- const list=collections[kind];
- if(!list||!id)return;
- const item=list.find(x=>String(x.id)===String(id));
- if(!item)return;
- const labels={fuel:'fuel fill-up',charge:'charging session',mileage:'mileage reading',maintenance:'maintenance record'};
- if(!window.confirm('Delete this '+(labels[kind]||'history entry')+'?'))return;
- const index=list.findIndex(x=>String(x.id)===String(id));
- if(index<0)return;
- list.splice(index,1);
- // Current odometer is derived from mileage history and settings. Removing
- // the latest reading must therefore recalculate the canonical odometer.
- if(kind==='mileage'){
-   const latest=[...d.mileage].sort((a,b)=>String(a.date).localeCompare(String(b.date))||Number(a.odo)-Number(b.odo)).pop();
-   // Current mileage is derived from d.mileage; no duplicated odometer state.
- }
- if(!save())return;
- render();
- toast((labels[kind]||'History entry')+' deleted');
-}
-
-function updateThemeIcon(){
- const dark=document.documentElement.classList.contains('dark');
- const themeButton=document.getElementById('themeBtn'); if(!themeButton)return; themeButton.innerHTML=dark?'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>':'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.7 6.7 0 0 0 9.8 9.8Z"/></svg>';
-}
-function openAddVehicle(){
- vehicleModalTitle.textContent='Add vehicle';editingVehicleId=null;vehicleSaveBtn.textContent='Add vehicle';
- newYear.value='';newMake.value='';newModel.value='';newImage.value='';newPower.value='Gas';newOwnership.value='Owned';
- ['newYear','newMake','newModel'].forEach(id=>setErr(id,false,''));
- vehicleModal.classList.add('show');
-}
-let editingVehicleId=null;
-function closeVehicleModal(){vehicleModal.classList.remove('show');editingVehicleId=null}
-
-function saveVehicleFromModal(){if(editingVehicleId){updateVehicle();}else{addVehicle();}}
-function addVehicle(){
- const year=+newYear.value,make=newMake.value.trim(),model=newModel.value.trim(),power=newPower.value,ownership=newOwnership.value,image=newImage.value.trim();
- setErr('newYear',!(year>=1900&&year<=2100),'Enter a valid year.');setErr('newMake',!make,'Enter a make.');setErr('newModel',!model,'Enter a model.');
- if(!(year>=1900&&year<=2100)||!make||!model)return;
- d.vehicles.push({id:Date.now().toString(),year,make,model,power,ownership,image});editingVehicleId=null;
- save();closeVehicleModal();render();toast(year+' '+make+' '+model+' added');
-}
-function updateVehicle(){
- const year=+newYear.value,make=newMake.value.trim(),model=newModel.value.trim(),power=newPower.value,ownership=newOwnership.value,image=newImage.value.trim();
- setErr('newYear',!(year>=1900&&year<=2100),'Enter a valid year.');setErr('newMake',!make,'Enter a make.');setErr('newModel',!model,'Enter a model.');
- if(!(year>=1900&&year<=2100)||!make||!model)return;
- const v=d.vehicles.find(x=>x.id===editingVehicleId);if(!v)return;
- Object.assign(v,{year,make,model,power,ownership,image});save();closeVehicleModal();render();toast('Vehicle updated');
-}
-
-function openCustomVehicle(id){
- const v=d.vehicles.find(x=>x.id===id);if(!v)return;
- customVehicleTitle.textContent=v.year+' '+v.make+' '+v.model;
- customVehicleSubtitle.textContent=v.power+' · '+v.ownership;
- customVehicleContent.innerHTML=customTrackingMarkup(v);
- customVehicleModal.classList.add('show');
-}
-function closeCustomVehicle(){customVehicleModal.classList.remove('show');customVehicleContent.innerHTML=''}
-function customTrackingMarkup(v){
- const fuelish=['Gas','Hybrid','Plug-in Hybrid'].includes(v.power);
- const electricish=['Electric','Plug-in Hybrid'].includes(v.power);
- const fuel=d.customFuel||[];
- const charge=d.customCharge||[];
- const maint=d.maint.filter(x=>x.vehicle===v.id);
- const fCost=fuel.filter(x=>x.vehicleId===v.id).reduce((s,x)=>s+x.spend,0);
- const cCost=charge.filter(x=>x.vehicleId===v.id).reduce((s,x)=>s+x.cost,0);
- const mCost=maint.reduce((s,x)=>s+x.cost,0);
- return `<div class="kpis">
-   ${fuelish?`<div class="kpi"><b>${money(fCost)}</b><span>Fuel</span></div>`:''}
-   ${electricish?`<div class="kpi"><b>${money(cCost)}</b><span>Charging</span></div>`:''}
-   <div class="kpi"><b>${money(mCost)}</b><span>Maintenance</span></div>
-   <div class="kpi"><b>${money(fCost+cCost+mCost)}</b><span>Total</span></div>
-  </div>
-  ${fuelish?`<section class="card" style="margin-top:14px"><h2>Add fuel</h2><div class="form">
-   <div class="field"><label>Date *</label><input id="cvFuelDate" class="input" type="date"></div>
-   <div class="field"><label>Odometer *</label><input id="cvFuelOdo" class="input" type="number" placeholder="km"></div>
-   <div class="field"><label>Price per litre *</label><input id="cvFuelPrice" class="input" type="number" step=".001" placeholder="$ / L"></div>
-   <div class="field"><label>Total spent *</label><input id="cvFuelSpend" class="input" type="number" step=".01" placeholder="$"></div>
-   <button class="btn primary full" onclick="addCustomFuel('${v.id}')">Add fuel</button>
-  </div></section>`:''}
-  ${electricish?`<section class="card" style="margin-top:14px"><h2>Add charging</h2><div class="form">
-   <div class="field"><label>Date *</label><input id="cvChargeDate" class="input" type="date"></div>
-   <div class="field"><label>kWh added *</label><input id="cvChargeKwh" class="input" type="number" step=".1" placeholder="kWh"></div>
-   <div class="field"><label>Rate</label><input id="cvChargeRate" class="input" type="number" step=".001" value=".098" placeholder="$/kWh"></div>
-   <button class="btn primary full" onclick="addCustomCharge('${v.id}')">Add charging</button>
-  </div></section>`:''}
-  <section class="card" style="margin-top:14px"><h2>Add maintenance</h2><div class="form">
-   <div class="field"><label>Date *</label><input id="cvMaintDate" class="input" type="date"></div>
-   <div class="field"><label>Service *</label><input id="cvMaintType" class="input" placeholder="Oil change, tires..."></div>
-   <div class="field"><label>Cost *</label><input id="cvMaintCost" class="input" type="number" step=".01" placeholder="$"></div>
-   <div class="field"><label>Odometer</label><input id="cvMaintOdo" class="input" type="number" placeholder="km"></div>
-   <button class="btn primary full" onclick="addCustomMaintenance('${v.id}')">Add maintenance</button>
-  </div></section>
-  <section class="card" style="margin-top:14px"><h2>Maintenance history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Service</th><th>Odometer</th><th>Cost</th></tr></thead><tbody>${maint.sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${esc(x.type)}</td><td>${x.odo?fmt(x.odo):'—'}</td><td>${money(x.cost)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No maintenance logged yet.</td></tr>'}</tbody></table></div></section>`;
-}
-function ensureCustomArrays(){d.customFuel=d.customFuel||[];d.customCharge=d.customCharge||[]}
-function addCustomFuel(id){
- ensureCustomArrays();
- const date=cvFuelDate.value,odo=+cvFuelOdo.value,price=+cvFuelPrice.value,spend=+cvFuelSpend.value;
- if(!date||!odo||!price||!spend){toast('Complete all fuel fields');return}
- const prev=[...d.customFuel].filter(x=>x.vehicleId===id&&x.odo<odo).sort((a,b)=>b.odo-a.odo)[0];
- const litres=spend/price,dist=prev?odo-prev.odo:0;
- d.customFuel.push({vehicleId:id,date,odo,price,spend,litres,eff:dist?litres/dist*100:null,cost100:dist?spend/dist*100:null});
- save();openCustomVehicle(id);toast('Fuel added');
-}
-function addCustomCharge(id){
- ensureCustomArrays();
- const date=cvChargeDate.value,kwh=+cvChargeKwh.value,rate=(cvChargeRate.value.trim()===''?d.settings.eRate:Number(cvChargeRate.value));
- if(!date||!kwh){toast('Enter date and kWh');return}
- d.customCharge.push({vehicleId:id,date,kwh,rate,cost:kwh*rate});
- save();openCustomVehicle(id);toast('Charging added');
-}
-function addCustomMaintenance(id){
- const date=cvMaintDate.value,type=cvMaintType.value.trim(),cost=+cvMaintCost.value,odo=+cvMaintOdo.value||0;
- if(!date||!type||!cost){toast('Complete date, service and cost');return}
- d.maint.push({date,vehicle:id,type,cost,odo});save();openCustomVehicle(id);toast('Maintenance added');
-}
-
-
-/* Reliable per-row history deletion */
-function deleteHistoryItem(kind,id){
-  const collections={fuel:d.fuel,charge:d.charge,mileage:d.mileage,maintenance:d.maint};
-  const list=collections[kind];
-  if(!Array.isArray(list)) return;
-  const index=list.findIndex(x=>String(x.id)===String(id));
-  if(index<0) return;
-
-  const labels={fuel:'fuel fill-up',charge:'charging session',mileage:'mileage reading',maintenance:'maintenance record'};
-  if(!window.confirm('Delete this '+labels[kind]+'?')) return;
-
-  list.splice(index,1);
-
-  if(kind==='mileage'){
-    const latest=[...d.mileage].sort((a,b)=>{
-      const date=String(a.date).localeCompare(String(b.date));
-      return date || Number(a.odo||0)-Number(b.odo||0);
-    }).pop();
-    // Current mileage is derived from d.mileage; no duplicated odometer state.
+  function todayISO() {
+    const d = new Date();
+    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0,10);
+  }
+  function dateISO(value) {
+    if (!value) return "";
+    const s = String(value);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return "";
+    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0,10);
+  }
+  function dateMs(value) {
+    const d = new Date(`${dateISO(value)}T12:00:00`);
+    return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+  }
+  function fmtNum(v, decimals = 1) {
+    if (!Number.isFinite(Number(v))) return "—";
+    return Number(v).toLocaleString("en-CA", {
+      maximumFractionDigits: decimals,
+      minimumFractionDigits: decimals === 0 ? 0 : Math.min(decimals, 1)
+    });
+  }
+  function fmtMoney(v) {
+    return Number(v || 0).toLocaleString("en-CA", {
+      style:"currency", currency:"CAD", minimumFractionDigits:2, maximumFractionDigits:2
+    });
+  }
+  function fmtDate(v) {
+    const s = dateISO(v);
+    if (!s) return "—";
+    return new Date(`${s}T12:00:00`).toLocaleDateString("en-CA", {
+      month:"short", day:"numeric", year:"numeric"
+    });
   }
 
-  if(!save()) return;
-  render();
-  setTimeout(addHistoryDeleteButtons,0);
-  toast(labels[kind].charAt(0).toUpperCase()+labels[kind].slice(1)+' deleted');
-}
+  const DEFAULTS = {
+    version: 36.1,
+    settings: {
+      allowance: 101847,
+      leaseStart: "2026-04-27",
+      leaseEnd: "2030-04-27",
+      leaseOdo: 0,
+      vOdo: 0,
+      excessRate: 0.20,
+      electricityRate: 0.098
+    },
+    vehicles: {
+      audi: { name:"2016 Audi A7", ownership:"Owned", power:"gas" },
+      vistiq: { name:"2026 Cadillac VISTIQ", ownership:"Leased", power:"electric" }
+    },
+    fuel: [],
+    charging: [],
+    mileage: [],
+    maintenance: [],
+    customVehicles: []
+  };
 
-function renderCustomVehicles(){
- const el=document.getElementById('customVehicles'); if(!el)return;
- ensureCustomArrays();
- el.innerHTML=d.vehicles.map(v=>{ const cf=d.customFuel.filter(x=>x.vehicleId===v.id).sort((a,b)=>a.date.localeCompare(b.date)); const cc=d.customCharge.filter(x=>x.vehicleId===v.id); const cm=d.maint.filter(x=>x.vehicle===v.id); const fuelCost=cf.reduce((sum,x)=>sum+(+x.spend||0),0), chargeCost=cc.reduce((sum,x)=>sum+(+x.cost||0),0), maintCost=cm.reduce((sum,x)=>sum+(+x.cost||0),0); const odos=cf.map(x=>+x.odo).filter(Boolean); const customDist=odos.length>1?Math.max(0,Math.max(...odos)-Math.min(...odos)):0; const costKm=customDist>0?(fuelCost+chargeCost+maintCost)/customDist:null; return `
- <article class="card vehicle">
-  <div class="vehicle-art" style="background:var(--surface2)">${v.image?`<img loading="lazy" src="${esc(v.image)}" alt="${esc(v.year+' '+v.make+' '+v.model)}">`:`<div class="vehicle-image-placeholder">${esc(v.power)}</div>`}</div>
-  <div class="vehicle-body"><div class="vehicle-title"><div><h2>${esc(v.year+' '+v.make+' '+v.model)}</h2><div class="vehicle-sub">${esc(v.power)}</div></div><span class="badge">${esc(v.ownership)}</span></div>
-  <div class="quick-actions"><div class="cost-km"><b>${costKm!=null?money(costKm):'—'}</b><span>total cost/km</span></div>${['Electric','Plug-in Hybrid'].includes(v.power)?`<button class="btn quick-icon" title="Add charge" aria-label="Add charge" onclick="openQuickCharge('${v.id}')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg></button>`:''}</div>
-  </div>
- </article>`}).join('');
-}
-function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-function manageVehicle(id){
- const v=d.vehicles.find(x=>x.id===id);if(!v)return;
- vehicleModalTitle.textContent=v.year+' '+v.make+' '+v.model;
- newYear.value=v.year;newMake.value=v.make;newModel.value=v.model;newPower.value=v.power;newOwnership.value=v.ownership;newImage.value=v.image||'';
- vehicleModal.classList.add('show');
-}
+  function blankState() {
+    return JSON.parse(JSON.stringify(DEFAULTS));
+  }
 
-function leaseMetrics(){
- const s=d.settings;
- const start=new Date((s.leaseStart||initial.settings.leaseStart)+'T00:00:00');
- const end=new Date((s.leaseEnd||initial.settings.leaseEnd)+'T00:00:00');
- const now=new Date();
- const totalDays=Math.max(1,(end-start)/86400000);
- const elapsedDays=Math.min(totalDays,Math.max(0,(now-start)/86400000));
- const remainingDays=Math.max(0,(end-now)/86400000);
- const readings=[...d.mileage].sort((a,b)=>a.date.localeCompare(b.date)||a.odo-b.odo);
- const currentOdo=readings.length?Number(readings[readings.length-1].odo||0):0;
- const driven=Math.max(0,currentOdo-(+s.leaseOdo||0));
- const expected=s.allowance*(elapsedDays/totalDays);
- const ahead=driven-expected;
- const avgDay=elapsedDays>0?driven/elapsedDays:0;
- const projected=avgDay*totalDays+(+s.leaseOdo||0);
- const excess=Math.max(0,projected-s.allowance);
- const months=Math.max(0,(end-now)/86400000/30.4375);
- const projectedCost=excess*Math.max(0,+s.vRate||0);
+  function vehicleKey(value) {
+    const s = String(value || "").toLowerCase();
+    if (s.includes("vistiq") || s.includes("cadillac") || s === "ev") return "vistiq";
+    if (s.includes("audi") || s.includes("a7") || s === "ice" || s === "gas") return "audi";
+    return "";
+  }
 
- // Trend: compare the average daily rate over the latest 30 days
- // with the preceding 30 days. If the log is sparse, fall back to
- // the two most recent odometer intervals so the indicator still works.
- const todayMs=now.getTime();
- const windowRate=(fromMs,toMs)=>{
-  const pts=readings.filter(r=>{
-   const t=new Date(r.date+'T23:59:59').getTime();
-   return t>=fromMs && t<=toMs;
+  function normalizeMileageRecord(raw, index = 0) {
+    if (!raw || typeof raw !== "object") return null;
+    const date = dateISO(first(raw, ["date","day","loggedAt","timestamp","createdAt"]));
+    const odo = num(first(raw, ["odometer","odo","mileage","km","currentMileage"]));
+    if (!date || !Number.isFinite(odo)) return null;
+    const vehicle = vehicleKey(first(raw, ["vehicle","vehicleName","vehicleId","car","type","powertrain"])) ||
+      (raw.vehicleKey === "vistiq" ? "vistiq" : raw.vehicleKey === "audi" ? "audi" : "");
+    return {
+      id: String(raw.id || raw._id || `m-${date}-${odo}-${index}`),
+      date, odometer: odo, vehicle: vehicle || "vistiq",
+      createdAt: raw.createdAt || date
+    };
+  }
+
+  function normalizeFuelRecord(raw, index = 0) {
+    if (!raw || typeof raw !== "object") return null;
+    const date = dateISO(first(raw, ["date","day","loggedAt","timestamp"]));
+    const odo = num(first(raw, ["odometer","odo","mileage"]));
+    const price = num(first(raw, ["pricePerLitre","price","rate","costPerLitre"]), 0);
+    const spend = num(first(raw, ["spend","totalSpent","total","cost","amount"]), 0);
+    let litres = num(first(raw, ["litres","liters","volume","quantity"]), NaN);
+    if (!Number.isFinite(litres) && price > 0 && spend >= 0) litres = spend / price;
+    if (!date || !Number.isFinite(odo)) return null;
+    return {
+      id: String(raw.id || raw._id || `f-${date}-${odo}-${index}`),
+      date, odometer: odo, pricePerLitre: price,
+      spend, litres: Number.isFinite(litres) ? litres : 0,
+      vehicle: "audi"
+    };
+  }
+
+  function normalizeChargeRecord(raw, index = 0) {
+    if (!raw || typeof raw !== "object") return null;
+    const date = dateISO(first(raw, ["date","day","loggedAt","timestamp"]));
+    const kwh = num(first(raw, ["kwh","kWh","energy","energyAdded","amount"]), NaN);
+    if (!date || !Number.isFinite(kwh)) return null;
+
+    // IMPORTANT: an explicit 0 is a valid override and must not be replaced by the default rate.
+    const hasRate = ["rate","electricityRate","pricePerKwh","price","costPerKwh"].some(k => has(raw,k));
+    const rateRaw = first(raw, ["rate","electricityRate","pricePerKwh","costPerKwh","price"], undefined);
+    const costRaw = first(raw, ["cost","spend","total","amount"], undefined);
+    return {
+      id: String(raw.id || raw._id || `c-${date}-${kwh}-${index}`),
+      date, kwh,
+      rate: hasRate ? num(rateRaw, 0) : null,
+      cost: costRaw !== undefined && costRaw !== null && costRaw !== "" ? num(costRaw, 0) : null,
+      vehicle: "vistiq"
+    };
+  }
+
+  function normalizeMaintenanceRecord(raw, index = 0) {
+    if (!raw || typeof raw !== "object") return null;
+    const date = dateISO(first(raw, ["date","day","loggedAt","timestamp"]));
+    const cost = num(first(raw, ["cost","spend","amount","price"]), NaN);
+    const service = String(first(raw, ["service","type","description","name"], "Maintenance"));
+    if (!date || !Number.isFinite(cost)) return null;
+    const vehicle = vehicleKey(first(raw, ["vehicle","vehicleName","vehicleId","car","type"])) ||
+      (raw.vehicleKey === "audi" ? "audi" : raw.vehicleKey === "vistiq" ? "vistiq" : "");
+    return {
+      id: String(raw.id || raw._id || `x-${date}-${index}`),
+      date, service, cost,
+      odometer: num(first(raw, ["odometer","odo","mileage"]), 0),
+      vehicle: vehicle || "vistiq"
+    };
+  }
+
+  function normalizeCustom(raw, index=0) {
+    if (!raw || typeof raw !== "object") return null;
+    return {
+      id: String(raw.id || raw._id || `v-${index}`),
+      name: String(first(raw, ["name","model","vehicleName"], "Vehicle")),
+      make: String(first(raw, ["make","brand"], "")),
+      year: num(first(raw, ["year"], 0)),
+      ownership: String(first(raw, ["ownership","status"], "Owned")),
+      power: String(first(raw, ["power","fuelType","type"], "gas"))
+    };
+  }
+
+  function normalizeState(input) {
+    let src = input;
+    if (!src || typeof src !== "object") src = {};
+    // Accept exported wrappers.
+    if (src.data && typeof src.data === "object") src = src.data;
+    if (src.garageData && typeof src.garageData === "object") src = src.garageData;
+    if (src.state && typeof src.state === "object") src = src.state;
+    if (src.backup && typeof src.backup === "object") src = src.backup;
+
+    const out = blankState();
+
+    const settings = src.settings || src.lease || {};
+    out.settings = {
+      allowance: num(first(settings, ["allowance","totalAllowance","leaseAllowance"],
+        first(src, ["allowance","leaseAllowance"], DEFAULTS.settings.allowance))),
+      leaseStart: dateISO(first(settings, ["leaseStart","startDate"], DEFAULTS.settings.leaseStart)) || DEFAULTS.settings.leaseStart,
+      leaseEnd: dateISO(first(settings, ["leaseEnd","endDate"], DEFAULTS.settings.leaseEnd)) || DEFAULTS.settings.leaseEnd,
+      leaseOdo: num(first(settings, ["leaseOdo","startOdometer"], DEFAULTS.settings.leaseOdo)),
+      vOdo: num(first(settings, ["vOdo","vistiqOdo","currentMileage"], DEFAULTS.settings.vOdo)),
+      excessRate: num(first(settings, ["excessRate","excessMileageRate"], DEFAULTS.settings.excessRate)),
+      electricityRate: num(first(settings, ["electricityRate","homeRate","defaultRate"], DEFAULTS.settings.electricityRate))
+    };
+
+    const vehicles = src.vehicles || {};
+    const rootAudi = src.audi && typeof src.audi === "object" ? src.audi : {};
+    const rootVistiq = src.vistiq && typeof src.vistiq === "object" ? src.vistiq : {};
+    out.vehicles.audi = { ...out.vehicles.audi, ...(vehicles.audi || {}), ...rootAudi.vehicle };
+    out.vehicles.vistiq = { ...out.vehicles.vistiq, ...(vehicles.vistiq || {}), ...rootVistiq.vehicle };
+
+    const toArray = value => {
+      if (Array.isArray(value)) return value;
+      if (value && typeof value === "object") {
+        // Support keyed collections such as {id:{...}} as well as {audi:[...],vistiq:[...]}.
+        const vals = Object.values(value);
+        if (vals.every(v => v && typeof v === "object" && !Array.isArray(v))) return vals;
+      }
+      return [];
+    };
+
+    // Current app shapes plus several legacy aliases.
+    const mileageRaw = src.mileage ?? src.mileageHistory ?? src.mileages ?? src.odoHistory ?? [];
+    const fuelRaw = src.fuel ?? src.fuelHistory ?? src.fuelLogs ?? src.fillups ?? [];
+    const chargeRaw = src.charging ?? src.chargingHistory ?? src.chargeHistory ?? src.charges ?? [];
+    const maintRaw = src.maintenance ?? src.maintenanceHistory ?? src.maintenanceLogs ?? src.services ?? [];
+
+    out.mileage = toArray(mileageRaw).map(normalizeMileageRecord).filter(Boolean);
+    out.fuel = toArray(fuelRaw).map(normalizeFuelRecord).filter(Boolean);
+    out.charging = toArray(chargeRaw).map(normalizeChargeRecord).filter(Boolean);
+    out.maintenance = toArray(maintRaw).map(normalizeMaintenanceRecord).filter(Boolean);
+    out.customVehicles = toArray(src.customVehicles).map(normalizeCustom).filter(Boolean);
+
+    // Some legacy exports stored vehicle logs under vehicle objects.
+    for (const key of ["audi","vistiq"]) {
+      const v = vehicles[key] || (key==="audi" ? rootAudi : rootVistiq) || {};
+      const vm = v.mileage || v.mileageHistory;
+      if (Array.isArray(vm)) out.mileage.push(...vm.map(r => normalizeMileageRecord({...r,vehicle:key})).filter(Boolean));
+      if (key === "audi") {
+        const vf = v.fuel || v.fuelHistory;
+        if (Array.isArray(vf)) out.fuel.push(...vf.map(normalizeFuelRecord).filter(Boolean));
+      }
+      if (key === "vistiq") {
+        const vc = v.charging || v.chargeHistory;
+        if (Array.isArray(vc)) out.charging.push(...vc.map(normalizeChargeRecord).filter(Boolean));
+      }
+      const vx = v.maintenance || v.maintenanceHistory;
+      if (Array.isArray(vx)) out.maintenance.push(...vx.map(r => normalizeMaintenanceRecord({...r,vehicle:key})).filter(Boolean));
+    }
+
+    // A common legacy format has root-level per-vehicle arrays.
+    if (out.mileage.length === 0) {
+      for (const key of ["audi","vistiq"]) {
+        const v = key==="audi" ? rootAudi : rootVistiq;
+        const rows = toArray(v.mileage || v.mileageHistory || v.odoHistory);
+        out.mileage.push(...rows.map(r=>normalizeMileageRecord({...r,vehicle:key})).filter(Boolean));
+      }
+    }
+    if (out.fuel.length === 0) {
+      out.fuel.push(...toArray(rootAudi.fuel || rootAudi.fuelHistory || rootAudi.fillups).map(normalizeFuelRecord).filter(Boolean));
+    }
+    if (out.charging.length === 0) {
+      out.charging.push(...toArray(rootVistiq.charging || rootVistiq.chargeHistory || rootVistiq.charges).map(normalizeChargeRecord).filter(Boolean));
+    }
+    if (out.maintenance.length === 0) {
+      for (const key of ["audi","vistiq"]) {
+        const v = key==="audi" ? rootAudi : rootVistiq;
+        out.maintenance.push(...toArray(v.maintenance || v.maintenanceHistory).map(r=>normalizeMaintenanceRecord({...r,vehicle:key})).filter(Boolean));
+      }
+    }
+
+    // De-duplicate by stable id where possible.
+    out.mileage = dedupe(out.mileage);
+    out.fuel = dedupe(out.fuel);
+    out.charging = dedupe(out.charging);
+    out.maintenance = dedupe(out.maintenance);
+    return out;
+  }
+
+  function dedupe(arr) {
+    const seen = new Set();
+    return arr.filter(r => {
+      const key = r.id || JSON.stringify(r);
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    });
+  }
+
+  function findStoredState() {
+    for (const key of LEGACY_KEYS) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") return normalizeState(parsed);
+      } catch (_) {}
+    }
+    // Last-resort discovery: look for a localStorage value containing recognizable garage arrays.
+    try {
+      for (let i=0; i<localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const raw = localStorage.getItem(key);
+        if (!raw || raw.length > 3_000_000) continue;
+        try {
+          const parsed = JSON.parse(raw);
+          const s = normalizeState(parsed);
+          if (s.mileage.length || s.fuel.length || s.charging.length || s.maintenance.length) return s;
+        } catch (_) {}
+      }
+    } catch (_) {}
+    return blankState();
+  }
+
+  let state = findStoredState();
+  let chartInstances = new Map();
+  let deferredInstallPrompt = null;
+
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      return true;
+    } catch (e) {
+      toast("Could not save Garage data.");
+      console.error(e);
+      return false;
+    }
+  }
+
+  function allMileage(vehicle) {
+    return state.mileage
+      .filter(r => r.vehicle === vehicle)
+      .sort((a,b) => dateMs(a.date)-dateMs(b.date) || a.odometer-b.odometer);
+  }
+  function latestMileage(vehicle) {
+    const rows = allMileage(vehicle);
+    return rows.length ? rows[rows.length-1] : null;
+  }
+  function mileageDistance(vehicle) {
+    const rows = allMileage(vehicle);
+    let total = 0;
+    for (let i=1;i<rows.length;i++) {
+      const d = num(rows[i].odometer) - num(rows[i-1].odometer);
+      if (d > 0) total += d;
+    }
+    return total;
+  }
+  function mileageYTD(vehicle, year = new Date().getFullYear()) {
+    const rows = allMileage(vehicle);
+    let total = 0;
+    for (let i=1;i<rows.length;i++) {
+      const d = num(rows[i].odometer) - num(rows[i-1].odometer);
+      const y = new Date(`${rows[i].date}T12:00:00`).getFullYear();
+      if (d > 0 && y === year) total += d;
+    }
+    return total;
+  }
+  function mileageByMonth(vehicle, count=12) {
+    const now = new Date();
+    const keys=[];
+    for(let i=count-1;i>=0;i--){
+      const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+      keys.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);
+    }
+    const vals=Object.fromEntries(keys.map(k=>[k,0]));
+    const rows=allMileage(vehicle);
+    for(let i=1;i<rows.length;i++){
+      const d=num(rows[i].odometer)-num(rows[i-1].odometer);
+      if(d<=0) continue;
+      const k=rows[i].date.slice(0,7);
+      if(k in vals) vals[k]+=d;
+    }
+    return keys.map(k=>({label:k.slice(0,7),value:vals[k]}));
+  }
+
+  function fuelTotal() { return state.fuel.reduce((s,r)=>s+num(r.spend),0); }
+  function chargeCost(r) {
+    if (r.cost !== null && r.cost !== undefined && Number.isFinite(Number(r.cost))) return num(r.cost);
+    const rate = r.rate === null || r.rate === undefined ? state.settings.electricityRate : num(r.rate);
+    return num(r.kwh) * rate;
+  }
+  function chargeTotal() { return state.charging.reduce((s,r)=>s+chargeCost(r),0); }
+  function maintTotal(vehicle="") {
+    return state.maintenance.filter(r=>!vehicle || r.vehicle===vehicle).reduce((s,r)=>s+num(r.cost),0);
+  }
+  function fuelMonthSpend() {
+    const now=new Date();
+    const keys=[];
+    for(let i=11;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);keys.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);}
+    const vals=Object.fromEntries(keys.map(k=>[k,0]));
+    state.fuel.forEach(r=>{if(r.date.slice(0,7) in vals) vals[r.date.slice(0,7)]+=num(r.spend)});
+    state.charging.forEach(r=>{if(r.date.slice(0,7) in vals) vals[r.date.slice(0,7)]+=chargeCost(r)});
+    state.maintenance.forEach(r=>{if(r.date.slice(0,7) in vals) vals[r.date.slice(0,7)]+=num(r.cost)});
+    return keys.map(k=>({label:k,value:vals[k]}));
+  }
+
+  function fuelEfficiency() {
+    const rows=state.fuel.slice().sort((a,b)=>dateMs(a.date)-dateMs(b.date)||a.odometer-b.odometer);
+    let liters=0, distance=0, spend=0;
+    for(let i=1;i<rows.length;i++){
+      const d=num(rows[i].odometer)-num(rows[i-1].odometer);
+      if(d>0){distance+=d;liters+=num(rows[i].litres);spend+=num(rows[i].spend);}
+    }
+    return {
+      l100: distance>0 ? liters/distance*100 : null,
+      cost100: distance>0 ? spend/distance*100 : null,
+      liters: state.fuel.reduce((s,r)=>s+num(r.litres),0),
+      spend
+    };
+  }
+  function efficiencyByMonth() {
+    const now=new Date(), keys=[];
+    for(let i=11;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);keys.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);}
+    const buckets=Object.fromEntries(keys.map(k=>[k,{l:0,d:0}]));
+    const rows=state.fuel.slice().sort((a,b)=>dateMs(a.date)-dateMs(b.date)||a.odometer-b.odometer);
+    for(let i=1;i<rows.length;i++){
+      const d=num(rows[i].odometer)-num(rows[i-1].odometer);
+      const k=rows[i].date.slice(0,7);
+      if(d>0 && buckets[k]){buckets[k].d+=d;buckets[k].l+=num(rows[i].litres);}
+    }
+    return keys.map(k=>({label:k,value:buckets[k].d?buckets[k].l/buckets[k].d*100:null}));
+  }
+
+  function vehicleCostKm(vehicle) {
+    const distance = mileageDistance(vehicle) ||
+      (vehicle==="audi" ? (() => {
+        const rows=state.fuel.slice().sort((a,b)=>dateMs(a.date)-dateMs(b.date)||a.odometer-b.odometer);
+        let d=0; for(let i=1;i<rows.length;i++){const x=rows[i].odometer-rows[i-1].odometer;if(x>0)d+=x;} return d;
+      })() : 0);
+    const operating = vehicle==="audi" ? fuelTotal() : chargeTotal();
+    const total = operating + maintTotal(vehicle);
+    return { total, distance, costKm: distance>0 ? total/distance : null };
+  }
+
+  function currentVistiqOdo() {
+    return latestMileage("vistiq")?.odometer ?? num(state.settings.vOdo);
+  }
+
+  function renderAll() {
+    renderHome();
+    renderAudi();
+    renderVistiq();
+    setDefaults();
+    drawAllCharts();
+  }
+
+  function renderHome() {
+    const audi = vehicleCostKm("audi");
+    const ev = vehicleCostKm("vistiq");
+    setText("audiEff", fuelEfficiency().l100 == null ? "—" : fmtNum(fuelEfficiency().l100,1));
+    setText("audiCost", fuelEfficiency().cost100 == null ? "—" : fmtMoney(fuelEfficiency().cost100));
+    setText("vEnergy", `${fmtNum(state.charging.reduce((s,r)=>s+num(r.kwh),0),1)}`);
+    setText("garageAudiTotal", fmtMoney(audi.total));
+    setText("garageVistiqTotal", fmtMoney(ev.total));
+    setText("garageAudiMaint", fmtMoney(maintTotal("audi")));
+    setText("garageVistiqMaint", fmtMoney(maintTotal("vistiq")));
+    setText("sumFuel", fmtMoney(fuelTotal()));
+    setText("sumCharge", fmtMoney(chargeTotal()));
+    setText("sumTotal", fmtMoney(audi.total + ev.total));
+
+    setText("audiCostKm", audi.costKm == null ? "—" : fmtMoney(audi.costKm));
+    setText("vistiqCostKm", ev.costKm == null ? "—" : fmtMoney(ev.costKm));
+
+    const year = new Date().getFullYear();
+    const aY = mileageYTD("audi", year), vY = mileageYTD("vistiq", year);
+    const garage = aY + vY;
+    const month = new Date().getMonth()+1;
+    setText("metricAudiYtd", `${fmtNum(aY,0)} km`);
+    setText("metricVistiqYtd", `${fmtNum(vY,0)} km`);
+    setText("metricGarageYtd", `${fmtNum(garage,0)} km`);
+    setText("metricAvgMonth", `${fmtNum(garage/Math.max(1,month),0)} km`);
+    setText("metricFuelSpend", fmtMoney(fuelTotal()));
+    const ySpend = [...state.fuel.map(r=>({date:r.date,cost:r.spend})),
+      ...state.charging.map(r=>({date:r.date,cost:chargeCost(r)})),
+      ...state.maintenance.map(r=>({date:r.date,cost:r.cost}))]
+      .filter(r=>new Date(`${r.date}T12:00:00`).getFullYear()===year)
+      .reduce((s,r)=>s+num(r.cost),0);
+    setText("metricTotalSpend", fmtMoney(ySpend));
+
+    // Keep card text in sync even if a prior index.html omitted these IDs.
+    const aCard = document.querySelector("#home .vehicle:nth-of-type(1) .cost-km");
+    const vCard = document.querySelector("#home .vehicle:nth-of-type(2) .cost-km");
+    if (aCard) aCard.title = audi.costKm == null ? "No distance data yet" : `${fmtMoney(audi.costKm)} per km including fuel and maintenance`;
+    if (vCard) vCard.title = ev.costKm == null ? "No distance data yet" : `${fmtMoney(ev.costKm)} per km including charging and maintenance`;
+  }
+
+  function renderAudi() {
+    const e=fuelEfficiency();
+    setText("aAvg", e.l100 == null ? "—" : fmtNum(e.l100,1));
+    setText("aCost100", e.cost100 == null ? "—" : `${fmtMoney(e.cost100)} / 100 km`);
+    setText("aTotalFuel", `${fmtNum(e.liters,1)} L`);
+    setText("aTotalSpend", fmtMoney(e.spend));
+    setText("aServiceTotal", fmtMoney(maintTotal("audi")));
+    renderFuelHistory();
+    renderMaintHistory("audi","aMaintHistory");
+    setText("aMaintTotal",fmtMoney(maintTotal("audi")));
+    setText("aMaintCount",String(state.maintenance.filter(r=>r.vehicle==="audi").length));
+  }
+
+  function renderVistiq() {
+    const odo = currentVistiqOdo();
+    setText("vOdo", odo ? fmtNum(odo,0) : "—");
+    setText("vRemain", fmtNum(Math.max(0,num(state.settings.allowance)-num(odo)),0));
+    const pct = state.settings.allowance>0 ? Math.min(100,Math.max(0,odo/state.settings.allowance*100)) : 0;
+    setText("vLeasePct", `${fmtNum(pct,1)}%`);
+    const bar=$("vBar"); if(bar) bar.style.width=`${pct}%`;
+
+    const rows=allMileage("vistiq");
+    const firstOdo = num(state.settings.leaseOdo);
+    const startDate = state.settings.leaseStart;
+    const today = todayISO();
+    const elapsedDays = Math.max(1,(dateMs(today)-dateMs(startDate))/86400000);
+    const drivenSinceStart = Math.max(0,odo-firstOdo);
+    const expected = state.settings.allowance * Math.min(1, elapsedDays/Math.max(1,(dateMs(state.settings.leaseEnd)-dateMs(startDate))/86400000));
+    const pace = elapsedDays>0 ? drivenSinceStart/elapsedDays : 0;
+
+    setText("leaseExpected", fmtNum(expected,1));
+    setText("leasePace", `${drivenSinceStart-expected>=0?"+":""}${fmtNum(drivenSinceStart-expected,1)} km`);
+    setText("leaseAvgDay", fmtNum(pace,1));
+
+    const endDays = Math.max(0,(dateMs(state.settings.leaseEnd)-dateMs(today))/86400000);
+    const projected = odo + pace*endDays;
+    const excess = Math.max(0,projected-num(state.settings.allowance));
+    setText("leaseProjected", fmtNum(projected,1));
+    setText("leaseExcess", fmtNum(excess,1));
+    setText("leaseMonths", fmtNum(endDays/30.4375,1));
+
+    const safeDay = endDays>0 ? Math.max(0,(num(state.settings.allowance)-odo)/endDays) : 0;
+    setText("leaseTargetDay", `${fmtNum(safeDay,1)} km/day`);
+    setText("leaseTargetText", `Maximum average driving rate from today to lease end to stay within ${fmtNum(state.settings.allowance,0)} km`);
+    setText("leaseCostTitle", excess>0 ? `Projected excess mileage cost: ${fmtMoney(excess*num(state.settings.excessRate))}` : "No projected excess mileage cost");
+    setText("leaseCostText", excess>0
+      ? `At your current ${fmtNum(pace,1)} km/day pace, you would finish around ${fmtNum(projected,1)} km — about ${fmtNum(excess,1)} km over the ${fmtNum(state.settings.allowance,0)} km allowance.`
+      : `At your current ${fmtNum(pace,1)} km/day pace, you are projected to stay within the ${fmtNum(state.settings.allowance,0)} km allowance.`);
+
+    const trend=$("leaseTrend");
+    if(trend){
+      // Compare recent daily rate to the previous comparable period.
+      const r=rows.slice(-8);
+      let recent=0, prior=0;
+      if(r.length>=3){
+        const mid=Math.floor(r.length/2);
+        const calc=arr=>{
+          if(arr.length<2)return 0;
+          const dd=Math.max(1,(dateMs(arr[arr.length-1].date)-dateMs(arr[0].date))/86400000);
+          return Math.max(0,(arr[arr.length-1].odometer-arr[0].odometer))/dd;
+        };
+        recent=calc(r.slice(mid)); prior=calc(r.slice(0,mid));
+      }
+      trend.textContent = recent>prior+0.5 ? "↑" : recent<prior-0.5 ? "↓" : "→";
+      trend.className=`pace-trend ${recent>prior+0.5?"up":recent<prior-0.5?"down":"flat"}`;
+      trend.setAttribute("aria-label",recent>prior+0.5?"Driving pace trending upward":recent<prior-0.5?"Driving pace trending downward":"Driving pace steady");
+    }
+
+    const e = state.charging.reduce((s,r)=>s+num(r.kwh),0);
+    const dist=mileageDistance("vistiq");
+    const cost=chargeTotal();
+    setText("vKwh100", dist>0 ? fmtNum(e/dist*100,1) : "—");
+    setText("vCost100", dist>0 ? `${fmtMoney(cost/dist*100)} / 100 km` : "—");
+    renderChargeHistory();
+    renderMileageHistory();
+    renderMaintHistory("vistiq","vMaintHistory");
+    setText("vMaintTotal",fmtMoney(maintTotal("vistiq")));
+    setText("vMaintCount",String(state.maintenance.filter(r=>r.vehicle==="vistiq").length));
+    setText("vRate",fmtMoney(state.settings.electricityRate));
+  }
+
+  function renderFuelHistory(){
+    const el=$("fuelHistory"); if(!el)return;
+    const rows=state.fuel.slice().sort((a,b)=>dateMs(b.date)-dateMs(a.date)||b.odometer-a.odometer);
+    el.innerHTML=rows.length ? rows.map(r=>`
+      <tr>
+        <td>${fmtDate(r.date)}</td><td>${fmtNum(r.odometer,0)}</td>
+        <td>${fmtNum(r.litres,1)}</td><td>${fmtMoney(r.pricePerLitre)}</td>
+        <td>${fmtMoney(r.spend)}</td>
+        <td><button class="row-delete" type="button" onclick="deleteHistory('fuel','${esc(r.id)}')" aria-label="Delete fill-up">×</button></td>
+      </tr>`).join("") : `<tr><td colspan="6" class="empty">No Audi fuel logged yet.</td></tr>`;
+  }
+
+  function renderChargeHistory(){
+    const el=$("chargeHistory"); if(!el)return;
+    const rows=state.charging.slice().sort((a,b)=>dateMs(b.date)-dateMs(a.date));
+    el.innerHTML=rows.length ? rows.map(r=>`
+      <tr><td>${fmtDate(r.date)}</td><td>${fmtNum(r.kwh,1)}</td><td>${r.rate===null?"Default":fmtMoney(r.rate)}</td><td>${fmtMoney(chargeCost(r))}</td>
+      <td><button class="row-delete" type="button" onclick="deleteHistory('charging','${esc(r.id)}')" aria-label="Delete charging session">×</button></td></tr>`).join("")
+      : `<tr><td colspan="5" class="empty">No VISTIQ charging logged yet.</td></tr>`;
+  }
+
+  function renderMileageHistory(){
+    const el=$("mileageHistory"); if(!el)return;
+    const rows=allMileage("vistiq").slice().sort((a,b)=>dateMs(b.date)-dateMs(a.date)||b.odometer-a.odometer);
+    el.innerHTML=rows.length ? rows.map((r,idx)=>{
+      const prev=rows[idx+1];
+      const since=prev ? r.odometer-prev.odometer : null;
+      return `<tr><td>${fmtDate(r.date)}</td><td>${fmtNum(r.odometer,0)}</td><td>${since!==null&&since>=0?fmtNum(since,0)+" km":"—"}</td>
+        <td><button class="row-delete" type="button" onclick="deleteHistory('mileage','${esc(r.id)}')" aria-label="Delete mileage">×</button></td></tr>`;
+    }).join("") : `<tr><td colspan="4" class="empty">No VISTIQ mileage logged yet.</td></tr>`;
+  }
+
+  function renderMaintHistory(vehicle, elementId){
+    const el=$(elementId); if(!el)return;
+    const rows=state.maintenance.filter(r=>r.vehicle===vehicle).slice().sort((a,b)=>dateMs(b.date)-dateMs(a.date));
+    el.innerHTML=rows.length ? rows.map(r=>`
+      <tr><td>${fmtDate(r.date)}</td><td>${esc(r.service)}</td><td>${r.odometer?fmtNum(r.odometer,0):"—"}</td><td>${fmtMoney(r.cost)}</td>
+      <td><button class="row-delete" type="button" onclick="deleteHistory('maintenance','${esc(r.id)}')" aria-label="Delete maintenance record">×</button></td></tr>`).join("")
+      : `<tr><td colspan="5" class="empty">No ${vehicle==="audi"?"Audi":"VISTIQ"} maintenance logged yet.</td></tr>`;
+  }
+
+  function setText(id,value){const el=$(id);if(el)el.textContent=value;}
+  function setVal(id,value){const el=$(id);if(el && value!==undefined && value!==null)el.value=value;}
+  function setDefaults(){
+    const defaults={
+      aDate:todayISO(), vDate:todayISO(), vMileageDate:todayISO(), vMDate:todayISO(), aMDate:todayISO(),
+      vRate:state.settings.electricityRate, qChargeDate:todayISO(), qChargeRate:state.settings.electricityRate,
+      qFuelDate:todayISO(), whatIfKm:2000,
+      sAllowance:state.settings.allowance,sLeaseStart:state.settings.leaseStart,sLeaseEnd:state.settings.leaseEnd,
+      sLeaseOdo:state.settings.leaseOdo,sVodo:currentVistiqOdo(),sVrate:state.settings.excessRate,sERate:state.settings.electricityRate
+    };
+    Object.entries(defaults).forEach(([k,v])=>{const el=$(k);if(el && (!el.value || k.startsWith("s"))) el.value=v;});
+  }
+
+  function drawAllCharts(){
+    drawLineChart("garageMileageChart", mileageByMonth("vistiq"), "km");
+    drawLineChart("garageAudiMileageChart", mileageByMonth("audi"), "km");
+    drawLineChart("garageSpendChart", fuelMonthSpend(), "$", true);
+    drawLineChart("garageEfficiencyChart", efficiencyByMonth(), "L/100 km");
+  }
+
+  function drawLineChart(id, data, unit, money=false){
+    const canvas=$(id); if(!canvas)return;
+    const dpr=window.devicePixelRatio||1;
+    const rect=canvas.getBoundingClientRect();
+    const w=Math.max(280,Math.floor(rect.width||canvas.clientWidth||850));
+    const h=Math.max(170,Math.floor(rect.height||canvas.clientHeight||220));
+    canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
+    const ctx=canvas.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,w,h);
+
+    const style=getComputedStyle(document.documentElement);
+    const muted=style.getPropertyValue("--muted").trim()||"#94a3b8";
+    const line=style.getPropertyValue("--line").trim()||"#263244";
+    const textColor=style.getPropertyValue("--text").trim()||"#f8fafc";
+    const accent=style.getPropertyValue("--blue").trim()||"#60a5fa";
+
+    const valid=data.filter(x=>x.value!==null&&Number.isFinite(Number(x.value)));
+    const pad={l:36,r:10,t:14,b:28};
+    ctx.font="10px system-ui";
+    ctx.strokeStyle=line;ctx.fillStyle=muted;ctx.lineWidth=1;
+
+    if(!valid.length){
+      ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle=muted;
+      ctx.fillText("No data yet",w/2,h/2);
+      return;
+    }
+    const max=Math.max(...valid.map(x=>Number(x.value)),0);
+    const min=Math.min(...valid.map(x=>Number(x.value)),0);
+    const range=max-min || 1;
+    const yMax=max + range*.12;
+    const yMin=Math.max(0,min-range*.08);
+    const plotW=w-pad.l-pad.r, plotH=h-pad.t-pad.b;
+
+    // horizontal grid
+    for(let i=0;i<4;i++){
+      const y=pad.t+plotH*i/3;
+      ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();
+      const v=yMax-(yMax-yMin)*i/3;
+      ctx.fillStyle=muted;ctx.textAlign="right";ctx.textBaseline="middle";
+      ctx.fillText(money?fmtMoney(v):fmtNum(v, v>=100?0:1),pad.l-5,y);
+    }
+
+    const pts=data.map((x,i)=>{
+      const v=x.value===null?null:Number(x.value);
+      return v===null?null:{
+        x:pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1)),
+        y:pad.t+(yMax-v)/(yMax-yMin)*plotH
+      };
+    });
+
+    ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.lineJoin="round";ctx.lineCap="round";
+    ctx.beginPath();let started=false;
+    pts.forEach(p=>{if(!p){started=false;return;} if(!started){ctx.moveTo(p.x,p.y);started=true;}else ctx.lineTo(p.x,p.y);});
+    ctx.stroke();
+
+    pts.forEach((p,i)=>{if(!p)return;ctx.fillStyle=accent;ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();});
+    ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="top";
+    data.forEach((x,i)=>{
+      if(i%Math.max(1,Math.ceil(data.length/6))!==0 && i!==data.length-1)return;
+      const xx=pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1));
+      const [yy,mm]=x.label.split("-");
+      const label=new Date(Number(yy),Number(mm)-1,1).toLocaleDateString("en-CA",{month:"short"});
+      ctx.fillText(label,xx,h-pad.b+9);
+    });
+  }
+
+  function show(screen){
+    ["home","audi","vistiq"].forEach(k=>$(k)?.classList.toggle("active",k===screen));
+    document.querySelectorAll(".nav button[data-nav]").forEach(b=>b.classList.toggle("active",b.dataset.nav===screen));
+    window.scrollTo({top:0,behavior:"instant"});
+    if(screen==="home") drawAllCharts();
+  }
+
+  function toast(message){
+    const el=$("toast"); if(!el)return;
+    el.textContent=message;el.classList.add("show");
+    clearTimeout(window.__garageToast);window.__garageToast=setTimeout(()=>el.classList.remove("show"),2200);
+  }
+
+  function closeModal(id){$(id)?.classList.remove("show");}
+  function openModal(id){$(id)?.classList.add("show");}
+
+  function clearErrors(prefix){
+    document.querySelectorAll(`#${prefix} .error.show`).forEach(e=>e.classList.remove("show"));
+  }
+  function error(id, showIt){$(id)?.classList.toggle("show",!!showIt);}
+
+  function addMileage(){
+    clearErrors("vistiq");
+    const date=$("vMileageDate")?.value, odo=num($("vMileageOdo")?.value,NaN);
+    let bad=false;
+    if(!date){error("vMileageDateErr",true);bad=true;}
+    if(!Number.isFinite(odo)){error("vMileageOdoErr",true);bad=true;}
+    if(bad)return;
+    const existing=state.mileage.find(r=>r.vehicle==="vistiq"&&r.date===date);
+    if(existing){
+      existing.odometer=odo;
+      toast("Mileage updated.");
+    }else{
+      state.mileage.push({id:id(),date,odometer:odo,vehicle:"vistiq",createdAt:new Date().toISOString()});
+      toast("Mileage saved.");
+    }
+    state.settings.vOdo=odo;
+    save(); renderAll();
+    setVal("vMileageOdo","");
+  }
+
+  function addFuel(){
+    const date=$("aDate")?.value, odo=num($("aOdo")?.value,NaN), price=num($("aPrice")?.value,NaN), spend=num($("aSpend")?.value,NaN);
+    let bad=false;
+    if(!date){error("aDateErr",true);bad=true}else error("aDateErr",false);
+    if(!Number.isFinite(odo)){error("aOdoErr",true);bad=true}else error("aOdoErr",false);
+    if(!Number.isFinite(price)){error("aPriceErr",true);bad=true}else error("aPriceErr",false);
+    if(!Number.isFinite(spend)){error("aSpendErr",true);bad=true}else error("aSpendErr",false);
+    if(bad)return;
+    state.fuel.push({id:id(),date,odometer:odo,pricePerLitre:price,spend,litres:price>0?spend/price:0,vehicle:"audi"});
+    save();renderAll();toast("Fill-up saved.");
+    ["aOdo","aPrice","aSpend"].forEach(k=>setVal(k,""));
+  }
+
+  function addCharge(){
+    const date=$("vDate")?.value, kwh=num($("vEnergy")?.value,NaN), rateField=$("vRate")?.value;
+    let bad=false;
+    if(!date){error("vDateErr",true);bad=true}else error("vDateErr",false);
+    if(!Number.isFinite(kwh)){error("vKwhErr",true);bad=true}else error("vKwhErr",false);
+    if(bad)return;
+    const hasOverride=rateField!==undefined && rateField!==null && String(rateField).trim()!=="";
+    const rate=hasOverride?num(rateField,0):state.settings.electricityRate;
+    state.charging.push({id:id(),date,kwh,rate,cost:null,vehicle:"vistiq"});
+    save();renderAll();toast("Charging session saved.");
+    setVal("vKwh",""); setVal("vRate",state.settings.electricityRate);
+  }
+
+  function addMaintenanceVehicle(vehicleName){
+    const vehicle=vehicleKey(vehicleName);
+    const p=vehicle==="audi"?{date:"aMDate",service:"aMType",cost:"aMCost",odo:"aMOdo"}:{date:"vMDate",service:"vMType",cost:"vMCost",odo:"vMOdo"};
+    const date=$(p.date)?.value, service=$(p.service)?.value?.trim(), cost=num($(p.cost)?.value,NaN), odo=num($(p.odo)?.value,0);
+    let bad=false;
+    const errs=vehicle==="audi"?{d:"aMDateErr",s:"aMTypeErr",c:"aMCostErr"}:{d:"vMDateErr",s:"vMTypeErr",c:"vMCostErr"};
+    if(!date){error(errs.d,true);bad=true}else error(errs.d,false);
+    if(!service){error(errs.s,true);bad=true}else error(errs.s,false);
+    if(!Number.isFinite(cost)){error(errs.c,true);bad=true}else error(errs.c,false);
+    if(bad)return;
+    state.maintenance.push({id:id(),date,service,cost,odometer:odo,vehicle});
+    save();renderAll();toast("Maintenance saved.");
+    setVal(p.service,"");setVal(p.cost,"");setVal(p.odo,"");
+  }
+
+  function deleteHistory(type, recordId){
+    const label={fuel:"fill-up",charging:"charging session",mileage:"mileage entry",maintenance:"maintenance record"}[type]||"record";
+    if(!confirm(`Delete this ${label}?`)) return;
+    const arr=state[type];
+    if(!Array.isArray(arr))return;
+    const before=arr.length;
+    state[type]=arr.filter(r=>String(r.id)!==String(recordId));
+    if(state[type].length===before)return;
+    if(type==="mileage"){
+      const latest=latestMileage("vistiq");
+      state.settings.vOdo=latest?.odometer ?? state.settings.vOdo;
+    }
+    save();renderAll();toast(`${label[0].toUpperCase()+label.slice(1)} deleted.`);
+  }
+
+  function calculateWhatIf(){
+    const monthly=num($("whatIfKm")?.value,0);
+    const current=currentVistiqOdo();
+    const days=Math.max(0,(dateMs(state.settings.leaseEnd)-dateMs(todayISO()))/86400000);
+    const projected=current+monthly/30.4375*days;
+    const excess=Math.max(0,projected-state.settings.allowance);
+    setText("whatIfResult",`${fmtNum(projected,1)} km projected • ${fmtNum(excess,1)} km excess • ${fmtMoney(excess*state.settings.excessRate)}`);
+    setText("whatIfDetail",`At ${fmtNum(monthly,0)} km/month from today through lease end.`);
+  }
+  function setWhatIf(v){setVal("whatIfKm",v);calculateWhatIf();}
+
+  function saveSettings(){
+    state.settings.allowance=num($("sAllowance")?.value,state.settings.allowance);
+    state.settings.leaseStart=dateISO($("sLeaseStart")?.value)||state.settings.leaseStart;
+    state.settings.leaseEnd=dateISO($("sLeaseEnd")?.value)||state.settings.leaseEnd;
+    state.settings.leaseOdo=num($("sLeaseOdo")?.value,state.settings.leaseOdo);
+    state.settings.vOdo=num($("sVodo")?.value,currentVistiqOdo());
+    state.settings.excessRate=num($("sVrate")?.value,state.settings.excessRate);
+    state.settings.electricityRate=num($("sERate")?.value,state.settings.electricityRate);
+    save();renderAll();closeModal("settingsModal");toast("Settings saved.");
+  }
+
+  function openSettings(){
+    setVal("sAllowance",state.settings.allowance);setVal("sLeaseStart",state.settings.leaseStart);setVal("sLeaseEnd",state.settings.leaseEnd);
+    setVal("sLeaseOdo",state.settings.leaseOdo);setVal("sVodo",currentVistiqOdo());setVal("sVrate",state.settings.excessRate);setVal("sERate",state.settings.electricityRate);
+    openModal("settingsModal");
+  }
+  function closeSettings(){closeModal("settingsModal");}
+
+  function exportData(){
+    const payload={...state,exportedAt:new Date().toISOString(),formatVersion:"36.1"};
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);const a=document.createElement("a");
+    a.href=url;a.download=`garage-backup-${todayISO()}.json`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    toast("Garage backup exported.");
+  }
+
+  function importData(event){
+    const file=event?.target?.files?.[0];
+    if(!file)return;
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        const parsed=JSON.parse(String(reader.result));
+        const imported=normalizeState(parsed);
+        const total=imported.mileage.length+imported.fuel.length+imported.charging.length+imported.maintenance.length+imported.customVehicles.length;
+        if(!total && !parsed.settings && !parsed.data && !parsed.garageData){
+          throw new Error("This file does not look like a Garage JSON backup.");
+        }
+        state=imported; save(); renderAll(); closeSettings();
+        toast(`Imported ${total} Garage records.`);
+      }catch(e){
+        console.error(e);
+        alert(`Could not import JSON: ${e.message||"Invalid JSON file."}`);
+      }finally{
+        if(event?.target) event.target.value="";
+      }
+    };
+    reader.onerror=()=>{alert("Could not read the JSON file.");if(event?.target)event.target.value="";};
+    reader.readAsText(file);
+  }
+
+  function toggleTheme(){
+    const html=document.documentElement;
+    const dark=!html.classList.contains("dark");
+    html.classList.toggle("dark",dark);
+    try{localStorage.setItem("garageTheme",dark?"dark":"light")}catch(_){}
+    drawAllCharts();
+  }
+
+  function openQuickCharge(){openModal("quickChargeModal");}
+  function closeQuickCharge(){closeModal("quickChargeModal");}
+  function saveQuickCharge(){
+    const date=$("qChargeDate")?.value,kwh=num($("qChargeKwh")?.value,NaN),rateRaw=$("qChargeRate")?.value;
+    if(!date||!Number.isFinite(kwh))return alert("Enter a date and kWh.");
+    const rate=String(rateRaw).trim()===""?state.settings.electricityRate:num(rateRaw,0);
+    state.charging.push({id:id(),date,kwh,rate,cost:null,vehicle:"vistiq"});save();renderAll();closeQuickCharge();toast("Charging session saved.");
+  }
+  function openQuickFuel(){openModal("quickFuelModal");}
+  function closeQuickFuel(){closeModal("quickFuelModal");}
+  function saveQuickFuel(){
+    const date=$("qFuelDate")?.value,odo=num($("qFuelOdo")?.value,NaN),price=num($("qFuelPrice")?.value,NaN),spend=num($("qFuelSpend")?.value,NaN);
+    if(!date||!Number.isFinite(odo)||!Number.isFinite(price)||!Number.isFinite(spend))return alert("Enter all fuel details.");
+    state.fuel.push({id:id(),date,odometer:odo,pricePerLitre:price,spend,litres:price>0?spend/price:0,vehicle:"audi"});
+    save();renderAll();closeQuickFuel();toast("Fuel saved.");
+  }
+
+  function openInstall(){openModal("installModal");}
+  function closeInstall(){closeModal("installModal");}
+  async function installGarage(){
+    if(deferredInstallPrompt){
+      deferredInstallPrompt.prompt();
+      try{await deferredInstallPrompt.userChoice}catch(_){}
+      deferredInstallPrompt=null;
+    }else toast("Use your browser menu and choose Install app.");
+    closeInstall();
+  }
+
+  function openVehicleModal(key){
+    const vehicle=state.vehicles[key]||{};
+    setText("vehicleModalTitle",vehicle.name||key);
+    const content=$("customVehicleContent");
+    if(content) content.innerHTML=`<div class="note">${esc(vehicle.ownership||"Owned")} · ${esc(vehicle.power||"gas")}</div>`;
+    openModal("vehicleModal");
+  }
+  function closeVehicleModal(){closeModal("vehicleModal");}
+  function saveVehicleFromModal(){closeVehicleModal();}
+  function openAddVehicle(){openModal("customVehicleModal");}
+  function closeCustomVehicle(){closeModal("customVehicleModal");}
+
+  // Keep inline onclick handlers working after the refactor.
+  Object.assign(window,{
+    show,toast,addMileage,addFuel,addCharge,addMaintenanceVehicle,deleteHistory,
+    calculateWhatIf,setWhatIf,saveSettings,openSettings,closeSettings,exportData,importData,
+    toggleTheme,openQuickCharge,closeQuickCharge,saveQuickCharge,openQuickFuel,closeQuickFuel,
+    saveQuickFuel,openInstall,closeInstall,installGarage,openVehicleModal,closeVehicleModal,
+    saveVehicleFromModal,openAddVehicle,closeCustomVehicle
   });
-  if(pts.length<2) return null;
-  const first=pts[0], last=pts[pts.length-1];
-  const days=Math.max(1,(new Date(last.date)-new Date(first.date))/86400000);
-  return Math.max(0,(+last.odo-+first.odo))/days;
- };
- let recentDayRate=windowRate(todayMs-30*86400000,todayMs);
- let priorDayRate=windowRate(todayMs-60*86400000,todayMs-30*86400000);
 
- if(recentDayRate==null || priorDayRate==null){
-  const intervals=[];
-  for(let i=1;i<readings.length;i++){
-   const a=readings[i-1], b=readings[i];
-   const days=Math.max(1,(new Date(b.date)-new Date(a.date))/86400000);
-   if(days<=90) intervals.push({rate:Math.max(0,(+b.odo-+a.odo))/days,date:b.date});
-  }
-  if(intervals.length>=2){
-   const last=intervals[intervals.length-1], prev=intervals[intervals.length-2];
-   recentDayRate=recentDayRate==null?last.rate:recentDayRate;
-   priorDayRate=priorDayRate==null?prev.rate:priorDayRate;
-  }
- }
-
- let trend='flat', trendPct=0;
- if(recentDayRate!=null && priorDayRate!=null){
-  trendPct=priorDayRate>0?((recentDayRate-priorDayRate)/priorDayRate)*100:0;
-  const threshold=Math.max(0.5,priorDayRate*.05);
-  const delta=recentDayRate-priorDayRate;
-  trend=delta>threshold?'up':delta<-threshold?'down':'flat';
- }
-
- const remainingAllowance=Math.max(0,(+s.allowance||0)-currentOdo);
- const targetDay=remainingDays>0?remainingAllowance/remainingDays:0;
- return {start,end,totalDays,elapsedDays,remainingDays,currentOdo,driven,expected,ahead,avgDay,projected,excess,months,projectedCost,recentDayRate,priorDayRate,trend,trendPct,targetDay};
-}
-function renderLeaseProjection(){
- const m=leaseMetrics();
- leaseMonths.textContent=m.months.toFixed(1);
- leaseExpected.textContent=fmt(m.expected);
- leasePace.textContent=(m.ahead>=0?'+':'-')+fmt(Math.abs(m.ahead));
- leaseAvgDay.textContent=m.avgDay.toFixed(1);
- leaseTrend.textContent=m.trend==='up'?'↑':m.trend==='down'?'↓':'→';
- leaseTrend.className='pace-trend '+m.trend;
- const trendLabel=m.trend==='up'
-  ? `Driving pace is trending upward${m.trendPct?` (${Math.abs(m.trendPct).toFixed(0)}% faster recently)`:''}`
-  : m.trend==='down'
-   ? `Driving pace is trending downward${m.trendPct?` (${Math.abs(m.trendPct).toFixed(0)}% slower recently)`:''}`
-   : 'Driving pace is roughly unchanged';
- leaseTrend.title=trendLabel;
- leaseTrend.setAttribute('aria-label',trendLabel);
- leaseProjected.textContent=fmt(m.projected);
- leaseExcess.textContent=m.excess?fmt(m.excess):'0';
- leaseTargetDay.textContent=m.targetDay.toFixed(1)+' km/day';
- leaseTargetText.textContent=m.remainingDays>0
-  ? `Average no more than ${m.targetDay.toFixed(1)} km/day from today to lease end to stay within your ${fmt(d.settings.allowance)} km allowance.`
-  : 'Lease end reached.';
- leaseCostTitle.textContent=m.excess?'Projected excess mileage cost: '+money(m.projectedCost):'Projected to stay within lease allowance';
- leaseCostText.textContent=m.excess
-  ? `At your current ${m.avgDay.toFixed(1)} km/day pace, you would finish around ${fmt(m.projected)} km — about ${fmt(m.excess)} km over the ${fmt(d.settings.allowance)} km allowance.`
-  : `At your current ${m.avgDay.toFixed(1)} km/day pace, you are projected to finish within your ${fmt(d.settings.allowance)} km allowance.`;
- calculateWhatIf();
-}
-function setWhatIf(km){whatIfKm.value=km;calculateWhatIf()}
-function calculateWhatIf(){
- const monthly=Math.max(0,+whatIfKm.value||0),m=leaseMetrics();
- if(!monthly){whatIfResult.textContent='—';whatIfDetail.textContent='Enter a monthly driving rate to see the projection.';return}
- const projected=m.driven+monthly*m.months+(+d.settings.leaseOdo||0);
- const excess=Math.max(0,projected-d.settings.allowance);
- const cost=excess*Math.max(0,+d.settings.vRate||0);
- whatIfResult.textContent=excess?`${fmt(excess)} km over · ${money(cost)}`:`${fmt(Math.max(0,d.settings.allowance-projected))} km under allowance`;
- whatIfDetail.textContent=`At ${fmt(monthly)} km/month for the remaining ${m.months.toFixed(1)} months, projected lease-end mileage is ${fmt(projected)} km.`;
-}
-
-
-function reconcileVistiqMileage(){return currentVistiqOdo()}
-
-
-function render(){
- reconcileVistiqMileage();
- renderCustomVehicles();
- const f=[...d.fuel].sort((a,b)=>a.date.localeCompare(b.date));
- const c=[...d.charge].sort((a,b)=>a.date.localeCompare(b.date));
- const fs=f.reduce((s,x)=>s+x.spend,0),cs=c.reduce((s,x)=>s+x.cost,0);
- const mt=d.maint.reduce((s,x)=>s+x.cost,0);
- const eff=f.filter(x=>x.eff),avg=eff.length?eff.reduce((s,x)=>s+x.eff,0)/eff.length:null;
- const avgCost=eff.length?eff.reduce((s,x)=>s+x.cost100,0)/eff.length:null;
- const totalFuel=f.reduce((s,x)=>s+x.litres,0);
- const miles=[...d.mileage].sort((a,b)=>a.date.localeCompare(b.date));
- const totalKwh=c.reduce((s,x)=>s+x.kwh,0);
- const dist=miles.length>1?miles[miles.length-1].odo-miles[0].odo:0;
- const audiDist=f.length>1?f[f.length-1].odo-f[0].odo:0;
- const ma=d.maint.filter(x=>x.vehicle==='Audi A7').reduce((s,x)=>s+x.cost,0);
- const mv=d.maint.filter(x=>x.vehicle==='Cadillac VISTIQ').reduce((s,x)=>s+x.cost,0);
- const audiCostKmValue=audiDist>0?(fs+ma)/audiDist:null;
- const vistiqCostKmValue=dist>0?(cs+mv)/dist:null;
- const cEff=dist>0?(totalKwh/dist)*100:null;
- const year=String(new Date().getFullYear());
- const audiYtd=ytdAudiMileage(f),vistiqYtd=ytdMileageFromReadings(miles),garageYtd=audiYtd+vistiqYtd;
- const monthsElapsed=new Date().getMonth()+1;
- metricAudiYtd.textContent=fmt(audiYtd)+' km';
- metricVistiqYtd.textContent=fmt(vistiqYtd)+' km';
- metricGarageYtd.textContent=fmt(garageYtd)+' km';
- metricAvgMonth.textContent=fmt(garageYtd/Math.max(1,monthsElapsed))+' km';
- metricFuelSpend.textContent=money(f.filter(x=>x.date.slice(0,4)===year).reduce((s,x)=>s+x.spend,0));
- metricTotalSpend.textContent=money(
-  f.filter(x=>x.date.slice(0,4)===year).reduce((s,x)=>s+x.spend,0)+
-  c.filter(x=>x.date.slice(0,4)===year).reduce((s,x)=>s+x.cost,0)+
-  d.maint.filter(x=>x.date.slice(0,4)===year).reduce((s,x)=>s+x.cost,0)
- );
- const currentOdo=currentVistiqOdo();
- const pct=currentOdo/d.settings.allowance*100;
- audiEff.textContent=avg?avg.toFixed(1):'—';audiCost.textContent=avgCost?money(avgCost):'—';audiCostKm.textContent=audiCostKmValue!=null?money(audiCostKmValue):'—';
- aAvg.textContent=avg?avg.toFixed(1):'—';aCost100.textContent=avgCost?money(avgCost):'—';
- aTotalFuel.textContent=totalFuel.toFixed(1)+' L';aTotalSpend.textContent=money(fs);aServiceTotal.textContent=money(ma);
- vRemain.textContent=fmt(Math.max(0,d.settings.allowance-currentOdo));vEnergy.textContent=totalKwh.toFixed(1);
- vKm.textContent=fmt(currentOdo);vRem.textContent=fmt(Math.max(0,d.settings.allowance-currentOdo));
- const currentPct=currentOdo/d.settings.allowance*100;
- vKwh100.textContent=cEff?cEff.toFixed(1):'—';vCost100.textContent=cEff?money(cEff*d.settings.eRate):'—';vistiqCostKm.textContent=vistiqCostKmValue!=null?money(vistiqCostKmValue):'—';vLeasePct.textContent=currentPct.toFixed(1)+'%';vBar.style.width=Math.min(100,currentPct)+'%';renderLeaseProjection();
- sumFuel.textContent=money(fs);sumCharge.textContent=money(cs);sumTotal.textContent=money(fs+cs+mt);
- garageAudiMaint.textContent=money(ma);garageVistiqMaint.textContent=money(mv);
- garageAudiTotal.textContent=money(fs+ma);garageVistiqTotal.textContent=money(cs+mv);
- aMaintTotal.textContent=money(ma);aMaintCount.textContent=d.maint.filter(x=>x.vehicle==='Audi A7').length;
- vMaintTotal.textContent=money(mv);vMaintCount.textContent=d.maint.filter(x=>x.vehicle==='Cadillac VISTIQ').length;
- const aRows=d.maint.filter(x=>x.vehicle==='Audi A7').sort((a,b)=>b.date.localeCompare(a.date));
- const vRows=d.maint.filter(x=>x.vehicle==='Cadillac VISTIQ').sort((a,b)=>b.date.localeCompare(a.date));
- document.getElementById('aMaintHistory').innerHTML=aRows.map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.type}</td><td>${x.odo?fmt(x.odo):'—'}</td><td>${money(x.cost)}</td><td class="history-action"><button type="button" class="history-delete" data-delete-kind="maintenance" data-delete-id="${x.id}" aria-label="Delete maintenance record">×</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">No Audi maintenance logged yet.</td></tr>';
- document.getElementById('vMaintHistory').innerHTML=vRows.map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.type}</td><td>${x.odo?fmt(x.odo):'—'}</td><td>${money(x.cost)}</td><td class="history-action"><button type="button" class="history-delete" data-delete-kind="maintenance" data-delete-id="${x.id}" aria-label="Delete maintenance record">×</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">No VISTIQ maintenance logged yet.</td></tr>';
- document.getElementById('fuelHistory').innerHTML=f.slice().reverse().map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${fmt(x.odo)}</td><td>${money(x.price)}</td><td>${money(x.spend)}</td><td>${x.litres.toFixed(1)}</td><td>${x.eff?x.eff.toFixed(1):'—'}</td><td class="history-action"><button type="button" class="history-delete" data-delete-kind="fuel" data-delete-id="${x.id}" aria-label="Delete fuel fill-up">×</button></td></tr>`).join('')||'<tr><td colspan="7" class="empty">No fill-ups logged yet.</td></tr>';
- document.getElementById('chargeHistory').innerHTML=c.slice().reverse().map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.kwh.toFixed(1)}</td><td>${money(x.rate)}</td><td>${money(x.cost)}</td><td class="history-action"><button type="button" class="history-delete" data-delete-kind="charge" data-delete-id="${x.id}" aria-label="Delete charging session">×</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">No charging sessions logged yet.</td></tr>';
- const mh=miles.slice().reverse();
- const mileageHistoryEl=document.getElementById('mileageHistory');
- mileageHistoryEl.innerHTML=mh.map((x,i)=>{const older=mh[i+1];const since=older?+x.odo-+older.odo:0;return `<tr><td>${dateFmt(x.date)}</td><td>${fmt(x.odo)}</td><td>${since>0?fmt(since)+' km':'—'}</td><td class="history-action"><button type="button" class="history-delete" data-delete-kind="mileage" data-delete-id="${x.id}" aria-label="Delete mileage reading">×</button></td></tr>`}).join('')||'<tr><td colspan="4" class="empty">No mileage readings logged yet.</td></tr>';
- const overallMaintHistory=document.getElementById('maintHistory'); if(overallMaintHistory){overallMaintHistory.innerHTML=[...d.maint].sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr><td>${dateFmt(x.date)}</td><td>${x.vehicle}</td><td>${x.type}</td><td>${x.odo?fmt(x.odo):'—'}</td><td>${money(x.cost)}</td><td class="history-action"><button type="button" class="history-delete" data-delete-kind="maintenance" data-delete-id="${x.id}" aria-label="Delete maintenance record">×</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">No maintenance logged yet.</td></tr>'; }
- drawFuel(f);drawGarageCharts(f,c,d.maint,miles);
-}
-function setErr(id,bad,msg){
- const el=document.getElementById(id),err=document.getElementById(id+'Err');
- if(!el||!err)return;
- el.classList.toggle('invalid',bad);err.textContent=msg;err.classList.toggle('show',bad);
-}
-function toast(msg){toastEl.textContent=msg;toastEl.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>toastEl.classList.remove('show'),2200)}
-function toast(msg){const el=document.getElementById('toast');if(!el)return;el.textContent=msg;el.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>el.classList.remove('show'),2200)}
-
-function addFuel(){
- const date=aDate.value,odo=+aOdo.value,price=+aPrice.value,spend=+aSpend.value;
- setErr('aDate',!date,'Choose a date.');setErr('aOdo',!odo,'Enter the odometer.');setErr('aPrice',!price,'Enter the price per litre.');setErr('aSpend',!spend,'Enter the total spent.');
- if(!date||!odo||!price||!spend)return;
- const sorted=[...d.fuel].sort((a,b)=>a.odo-b.odo),prev=sorted.filter(x=>x.odo<odo).pop();
- if(prev&&odo<=prev.odo){setErr('aOdo',true,'Odometer must be higher than the previous reading.');return}
- const litres=spend/price,dist=prev?odo-prev.odo:0;
- d.fuel.push({id:newId('fuel'),date,odo,price,spend,litres,eff:dist?litres/dist*100:null,cost100:dist?spend/dist*100:null});
- save();aOdo.value='';aSpend.value='';render();toast('Fuel fill-up added');
-}
-function addMileage(){
- const dateEl=document.getElementById('vMileageDate');
- const odoEl=document.getElementById('vMileageOdo');
- const date=dateEl?.value||'', odo=Number(odoEl?.value||0);
- setErr('vMileageDate',!date,'Choose a date.');
- setErr('vMileageOdo',!odo,'Enter the odometer.');
- if(!date||!odo)return;
-
- const readings=[...d.mileage].sort((a,b)=>a.date.localeCompare(b.date)||(+a.odo)-(+b.odo));
- const latest=readings[readings.length-1];
-
- // A later-dated reading cannot have a lower odometer.
- if(latest && date>=latest.date && odo<+latest.odo){
-   setErr('vMileageOdo',true,'Odometer cannot be lower than the latest reading.');
-   return;
- }
-
- // Same-day entries replace the existing reading instead of creating duplicates.
- const sameDay=d.mileage.find(x=>x.date===date);
- if(sameDay) sameDay.odo=odo;
- else d.mileage.push({id:newId('mileage'),date,odo});
-
- d.mileage.sort((a,b)=>a.date.localeCompare(b.date)||(+a.odo)-(+b.odo));
- 
- if(!save())return;
- if(odoEl)odoEl.value='';
- render();
- toast(sameDay?'Mileage updated':'Mileage reading added');
-}
-function addCharge(){
- const date=vDate.value,kwh=+vKwh.value,rate=(vRate.value.trim()===''?d.settings.eRate:Number(vRate.value));
- setErr('vDate',!date,'Choose a date.');setErr('vKwh',!kwh,'Enter the energy added.');
- if(!date||!kwh)return;
- d.charge.push({id:newId('charge'),date,kwh,rate,cost:kwh*rate});save();vKwh.value='';render();toast('Charging session added');
-}
-function addMaintenanceVehicle(vehicle){
- const p=vehicle==='Audi A7'?{date:aMDate,type:aMType,cost:aMCost,odo:aMOdo}:{date:vMDate,type:vMType,cost:vMCost,odo:vMOdo};
- const ids=vehicle==='Audi A7'?['aMDate','aMType','aMCost']:['vMDate','vMType','vMCost'];
- const date=p.date.value,type=p.type.value.trim(),cost=+p.cost.value,odo=+p.odo.value||0;
- setErr(ids[0],!date,'Choose a date.');setErr(ids[1],!type,'Enter a service.');setErr(ids[2],!cost,'Enter a valid cost.');
- if(!date||!type||!cost)return;
- d.maint.push({id:newId('maint'),date,vehicle,type,cost,odo});save();p.type.value='';p.cost.value='';p.odo.value='';render();toast(vehicle+' maintenance added');
-}
-
-function chartTheme(){
- const cs=getComputedStyle(document.documentElement);
- return {text:cs.getPropertyValue('--text').trim(),muted:cs.getPropertyValue('--muted').trim(),line:cs.getPropertyValue('--line').trim(),blue:cs.getPropertyValue('--blue').trim(),surface:cs.getPropertyValue('--surface2').trim()};
-}
-function setupChart(id){
- const c=document.getElementById(id); if(!c)return null;
- const rect=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1,w=Math.max(320,Math.round(rect.width)),h=Math.max(160,Math.round(rect.height));
- c.width=w*dpr;c.height=h*dpr;const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,h);
- return {c,x,w,h,t:chartTheme()};
-}
-function drawEmptyChart(id,msg){
- const q=setupChart(id);if(!q)return;const {x,t}=q;x.fillStyle=t.muted;x.font='13px system-ui';x.fillText(msg,14,30);
-}
-function monthKey(date){return date.slice(0,7)}
-function monthLabel(k){const [y,m]=k.split('-');return new Date(+y,+m-1,1).toLocaleDateString(undefined,{month:'short',year:'2-digit'})}
-function lastMonths(n=8){
- const now=new Date(),arr=[];for(let i=n-1;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);arr.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))}return arr;
-}
-function drawLineChart(id,rows,valueKey,empty){
- if(!rows.length){drawEmptyChart(id,empty);return}
- const q=setupChart(id);if(!q)return;const {x,w,h,t}=q,p={l:40,r:10,t:12,b:28},iw=w-p.l-p.r,ih=h-p.t-p.b;
- const vals=rows.map(r=>r[valueKey]),mx=Math.max(...vals,1),mn=Math.min(0,Math.min(...vals)),range=mx-mn||1;
- x.strokeStyle=t.line;x.lineWidth=1;
- for(let i=0;i<4;i++){const y=p.t+i*ih/3;x.beginPath();x.moveTo(p.l,y);x.lineTo(w-p.r,y);x.stroke()}
- x.fillStyle=t.muted;x.font='10px system-ui';
- rows.forEach((r,i)=>{if(i%Math.ceil(rows.length/6)===0||i===rows.length-1){const px=p.l+(rows.length===1?iw/2:i/(rows.length-1)*iw);x.fillText(r.label,Math.max(p.l,px-15),h-8)}})
- x.strokeStyle=t.blue;x.lineWidth=2.5;x.beginPath();
- rows.forEach((r,i)=>{const px=p.l+(rows.length===1?iw/2:i/(rows.length-1)*iw),py=p.t+ih-(r[valueKey]-mn)/range*ih;i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke();
- rows.forEach((r,i)=>{const px=p.l+(rows.length===1?iw/2:i/(rows.length-1)*iw),py=p.t+ih-(r[valueKey]-mn)/range*ih;x.fillStyle=t.blue;x.beginPath();x.arc(px,py,3.5,0,Math.PI*2);x.fill()});
-}
-function audiMileageByMonth(f){
- const sorted=[...f].sort((a,b)=>a.date.localeCompare(b.date)||a.odo-b.odo),by={};
- for(let i=1;i<sorted.length;i++){
-  const dist=+sorted[i].odo-+sorted[i-1].odo;
-  if(dist>=0){const k=monthKey(sorted[i].date);by[k]=(by[k]||0)+dist}
- }
- return by;
-}
-function ytdMileageFromReadings(readings){
- const year=new Date().getFullYear(),sorted=[...readings].sort((a,b)=>a.date.localeCompare(b.date));
- const inYear=sorted.filter(x=>x.date.slice(0,4)===String(year));
- if(!inYear.length)return 0;
- const before=sorted.filter(x=>x.date.slice(0,4)<String(year)).pop();
- const startOdo=before?+before.odo:+inYear[0].odo;
- return Math.max(0,+inYear[inYear.length-1].odo-startOdo);
-}
-function ytdAudiMileage(f){
- const year=new Date().getFullYear(),sorted=[...f].sort((a,b)=>a.date.localeCompare(b.date)||a.odo-b.odo);
- const inYear=sorted.filter(x=>x.date.slice(0,4)===String(year));
- if(!inYear.length)return 0;
- const before=sorted.filter(x=>x.date.slice(0,4)<String(year)).pop();
- const startOdo=before?+before.odo:+inYear[0].odo;
- return Math.max(0,+inYear[inYear.length-1].odo-startOdo);
-}
-
-function drawMileageChart(miles){
- const sorted=[...miles].sort((a,b)=>a.date.localeCompare(b.date)),by={};
- for(let i=1;i<sorted.length;i++){const dist=sorted[i].odo-sorted[i-1].odo;if(dist>=0){const k=monthKey(sorted[i].date);by[k]=(by[k]||0)+dist}}
- const keys=lastMonths(8).filter(k=>by[k]!=null);
- drawLineChart('garageMileageChart',keys.map(k=>({label:monthLabel(k),km:by[k]})),'km','Add more VISTIQ mileage readings to see monthly driving.');
-}
-function drawAudiMileageChart(f){
- const by=audiMileageByMonth(f);
- const keys=lastMonths(8).filter(k=>by[k]!=null);
- drawLineChart('garageAudiMileageChart',keys.map(k=>({label:monthLabel(k),km:by[k]})),'km','Add more Audi fill-ups to see monthly driving.');
-}
-
-function drawSpendChart(f,c,maint){
- const keys=lastMonths(8),rows=keys.map(k=>({label:monthLabel(k),fuel:0,charge:0,maint:0}));
- const map=Object.fromEntries(rows.map(r=>[r.label,r]));
- const raw={};keys.forEach(k=>raw[k]={label:monthLabel(k),fuel:0,charge:0,maint:0});
- f.forEach(x=>{const k=monthKey(x.date);if(raw[k])raw[k].fuel+=+x.spend||0});
- c.forEach(x=>{const k=monthKey(x.date);if(raw[k])raw[k].charge+=+x.cost||0});
- maint.forEach(x=>{const k=monthKey(x.date);if(raw[k])raw[k].maint+=+x.cost||0});
- const data=keys.map(k=>raw[k]);
- const q=setupChart('garageSpendChart');if(!q)return;
- const {x,w,h,t}=q,p={l:42,r:10,t:12,b:28},iw=w-p.l-p.r,ih=h-p.t-p.b,max=Math.max(...data.map(r=>r.fuel+r.charge+r.maint),1);
- x.strokeStyle=t.line;x.lineWidth=1;for(let i=0;i<4;i++){const y=p.t+i*ih/3;x.beginPath();x.moveTo(p.l,y);x.lineTo(w-p.r,y);x.stroke()}
- const bw=Math.min(42,iw/data.length*.62);
- data.forEach((r,i)=>{const bx=p.l+(i+.5)*iw/data.length-bw/2,parts=[['fuel',r.fuel],['charge',r.charge],['maint',r.maint]];let bottom=h-p.b;parts.forEach(([k,val],j)=>{const bh=val/max*ih;if(bh>0){x.fillStyle=j===0?t.blue:j===1?t.muted:t.text;x.globalAlpha=j===2?.55:1;x.fillRect(bx,bottom-bh,bw,bh);bottom-=bh;x.globalAlpha=1}});x.fillStyle=t.muted;x.font='10px system-ui';x.fillText(r.label,bx-7,h-8)});
- x.fillStyle=t.muted;x.font='10px system-ui';x.fillText('Fuel',p.l,10);x.fillText('Charge',p.l+38,10);x.fillText('Maintenance',p.l+80,10);
-}
-function drawEfficiencyChart(f){
- const rows=f.filter(x=>x.eff).slice(-8).map(x=>({label:monthLabel(monthKey(x.date)),eff:x.eff}));
- drawLineChart('garageEfficiencyChart',rows,'eff','Add two or more Audi fill-ups to see efficiency.');
-}
-function drawGarageCharts(f,c,maint,miles){drawMileageChart(miles);drawAudiMileageChart(f);drawSpendChart(f,c,maint);drawEfficiencyChart(f)}
-function drawFuel(f){
- const c=document.getElementById('fuelChart'),x=c.getContext('2d'),w=c.width,h=c.height;x.clearRect(0,0,w,h);
- const q=f.filter(z=>z.eff);if(!q.length){x.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--muted');x.font='14px system-ui';x.fillText('Add two or more fill-ups to see your efficiency trend.',20,32);return}
- const vals=q.map(z=>z.eff),mx=Math.max(...vals)*1.1,mn=Math.min(...vals)*.9;
- x.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--line');x.lineWidth=1;
- for(let i=1;i<4;i++){let y=i*h/4;x.beginPath();x.moveTo(0,y);x.lineTo(w,y);x.stroke()}
- x.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--blue');x.lineWidth=3;x.beginPath();
- q.forEach((z,i)=>{let px=q.length===1?w/2:i/(q.length-1)*w,py=h-(z.eff-mn)/(mx-mn)*h;i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke();
- q.forEach((z,i)=>{let px=q.length===1?w/2:i/(q.length-1)*w,py=h-(z.eff-mn)/(mx-mn)*h;x.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--blue');x.beginPath();x.arc(px,py,5,0,Math.PI*2);x.fill()});
-}
-function openQuickCharge(vehicleId){
- window.quickChargeVehicleId=vehicleId||null;
- const v=vehicleId&&d.vehicles.find(x=>x.id===vehicleId);
- quickChargeTitle.textContent=v?'Add charge · '+v.make+' '+v.model:'Add VISTIQ charge';
- quickChargeSubtitle.textContent=v?'Quick entry':'Quick entry';
- qChargeDate.value=new Date().toISOString().slice(0,10);
- qChargeKwh.value='';qChargeRate.value=d.settings.eRate||.098;
- quickChargeModal.classList.add('show');
- setTimeout(()=>qChargeKwh.focus(),80);
-}
-function closeQuickCharge(){quickChargeModal.classList.remove('show');window.quickChargeVehicleId=null}
-function saveQuickCharge(){
- const date=qChargeDate.value,kwh=+qChargeKwh.value,rate=(qChargeRate.value.trim()===''?d.settings.eRate:Number(qChargeRate.value));
- if(!date||!kwh){toast('Enter date and kWh');return}
- if(window.quickChargeVehicleId){
-  d.customCharge=d.customCharge||[];
-  d.customCharge.push({id:newId('charge'),vehicleId:window.quickChargeVehicleId,date,kwh,rate,cost:kwh*rate});
- }else{
-  d.charge.push({id:newId('charge'),date,kwh,rate,cost:kwh*rate});
- }
- save();closeQuickCharge();render();toast('Charging added');
-}
-
-function openQuickFuel(){
- qFuelDate.value=new Date().toISOString().slice(0,10);
- qFuelOdo.value='';qFuelPrice.value='';qFuelSpend.value='';
- quickFuelModal.classList.add('show');
- setTimeout(()=>qFuelOdo.focus(),80);
-}
-function closeQuickFuel(){quickFuelModal.classList.remove('show')}
-function saveQuickFuel(){
- const date=qFuelDate.value,odo=+qFuelOdo.value,price=+qFuelPrice.value,spend=+qFuelSpend.value;
- if(!date||!odo||!price||!spend){toast('Complete all fuel fields');return}
- const prev=[...d.fuel].filter(x=>x.odo<odo).sort((a,b)=>b.odo-a.odo)[0];
- const litres=spend/price,dist=prev?odo-prev.odo:0;
- d.fuel.push({id:newId('fuel'),date,odo,price,spend,litres,eff:dist?litres/dist*100:null,cost100:dist?spend/dist*100:null});
- save();closeQuickFuel();render();toast('Audi fuel added');
-}
-function importData(event){
- const file=event.target.files&&event.target.files[0];if(!file)return;
- const reader=new FileReader();
- reader.onload=()=>{
-  try{
-   const incoming=JSON.parse(reader.result);
-   if(!incoming||typeof incoming!=='object'||!Array.isArray(incoming.fuel)||!Array.isArray(incoming.charge)||!Array.isArray(incoming.maint)){
-    throw new Error('Invalid backup');
-   }
-   if(!confirm('Import this backup and replace the garage data currently stored on this device?'))return;
-   d={
-    settings:{...initial.settings,...(incoming.settings||{})},
-    fuel:incoming.fuel||[],
-    charge:incoming.charge||[],
-    maint:incoming.maint||[],
-    mileage:incoming.mileage||[],
-    vehicles:incoming.vehicles||[],
-    customFuel:incoming.customFuel||[],
-    customCharge:incoming.customCharge||[]
-   };
-   save();render();toast('Garage backup imported');
-  }catch(e){toast('That backup file is not valid')}
-  event.target.value='';
- };
- reader.readAsText(file);
-}
-
-
-let deferredInstallPrompt=null;
-window.addEventListener('beforeinstallprompt',e=>{
- e.preventDefault();
- deferredInstallPrompt=e;
- const b=document.getElementById('installAppBtn'); if(b)b.style.display='';
-});
-window.addEventListener('appinstalled',()=>{
- deferredInstallPrompt=null;
- const b=document.getElementById('installAppBtn'); if(b)b.style.display='none';
- closeInstall();
- toast('Garage installed');
-});
-function openInstall(){
- if(deferredInstallPrompt) installGarage();
- else installModal.classList.add('show');
-}
-function closeInstall(){installModal.classList.remove('show')}
-async function installGarage(){
- if(!deferredInstallPrompt){installModal.classList.add('show');return}
- const prompt=deferredInstallPrompt;
- deferredInstallPrompt=null;
- await prompt.prompt();
- const result=await prompt.userChoice;
- if(result.outcome==='accepted') toast('Installing Garage');
-}
-
-function exportData(){
- const backup={
-  app:'My Garage',
-  formatVersion:1,
-  exportedAt:new Date().toISOString(),
-  settings:{...d.settings},
-  fuel:d.fuel.map(x=>({...x})),
-  charge:d.charge.map(x=>({...x})),
-  mileage:d.mileage.map(x=>({...x})),
-  maint:d.maint.map(x=>({...x})),
-  vehicles:d.vehicles.map(x=>({...x})),
-  customFuel:d.customFuel.map(x=>({...x})),
-  customCharge:d.customCharge.map(x=>({...x}))
- };
- const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
- const url=URL.createObjectURL(blob);
- const a=document.createElement('a');
- const stamp=new Date().toISOString().slice(0,10);
- a.href=url;a.download=`garage-backup-${stamp}.json`;
- document.body.appendChild(a);a.click();a.remove();
- setTimeout(()=>URL.revokeObjectURL(url),1000);
- toast('Garage data exported');
-}
-function openSettings(){
- reconcileVistiqMileage();
- $('sAllowance').value=d.settings.allowance;
- $('sLeaseStart').value=d.settings.leaseStart||initial.settings.leaseStart;
- $('sLeaseEnd').value=d.settings.leaseEnd||initial.settings.leaseEnd;
- $('sLeaseOdo').value=d.settings.leaseOdo||0;
- if($('sVodo')) $('sVodo').value=currentVistiqOdo();
- $('sVrate').value=d.settings.vRate;
- $('sERate').value=d.settings.eRate;
- $('settingsModal').classList.add('show');
-}
-function closeSettings(){settingsModal.classList.remove('show')}
-function saveSettings(){
- const allowance=Number(sAllowance.value),leaseOdo=Number(sLeaseOdo.value||0),vRate=Number(sVrate.value),eRate=Number(sERate.value);
- if(!Number.isFinite(allowance)||allowance<0||!Number.isFinite(leaseOdo)||leaseOdo<0||!Number.isFinite(vRate)||vRate<0||!Number.isFinite(eRate)||eRate<0){toast('Enter valid garage settings');return}
- d.settings.allowance=allowance;
- d.settings.leaseStart=sLeaseStart.value||initial.settings.leaseStart;
- d.settings.leaseEnd=sLeaseEnd.value||initial.settings.leaseEnd;
- d.settings.leaseOdo=leaseOdo;
- const enteredOdo=Number(($('sVodo')?.value||currentVistiqOdo()));
- if(Number.isFinite(enteredOdo)&&enteredOdo>=0&&enteredOdo!==currentVistiqOdo())setCurrentVistiqMileage(enteredOdo);
- d.settings.vRate=vRate;d.settings.eRate=eRate;
- save();closeSettings();render();toast('Garage settings saved');
-}
-
-if(localStorage.getItem('garageTheme')!=='light')document.documentElement.classList.add('dark');
-updateThemeIcon();
-aDate.value=vDate.value=vMileageDate.value=aMDate.value=vMDate.value=today();
-if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
-bootstrapStorage();
+  window.addEventListener("resize",()=>{clearTimeout(window.__garageResize);window.__garageResize=setTimeout(drawAllCharts,120);});
+  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstallPrompt=e;setText("installAppBtn","Install Garage as an app");const b=$("installAppBtn");if(b)b.style.display="block";});
+  window.addEventListener("storage",e=>{if(e.key===STORAGE_KEY){state=findStoredState();renderAll();}});
+  document.addEventListener("DOMContentLoaded",()=>{
+    try{
+      const theme=localStorage.getItem("garageTheme");
+      if(theme==="dark" || (!theme && window.matchMedia?.("(prefers-color-scheme: dark)").matches)) document.documentElement.classList.add("dark");
+    }catch(_){}
+    // Modal backdrop close without breaking buttons.
+    document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("show");}));
+    renderAll();
+    show(document.querySelector(".screen.active")?.id || "home");
+  });
+})();
