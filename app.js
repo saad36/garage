@@ -394,6 +394,59 @@
     return keys.map(k=>({label:k,value:vals[k]}));
   }
 
+  function vistiqEfficiency() {
+    const kwh = state.charging.reduce((s,r)=>s+num(r.kwh),0);
+    const distance = mileageDistance("vistiq");
+    return { kwh100: distance>0 ? kwh/distance*100 : null, kwh, distance };
+  }
+
+  function monthlyKeys(count=12){
+    const now=new Date(), keys=[];
+    for(let i=count-1;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);keys.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);}
+    return keys;
+  }
+
+  function monthlyMileageMap(vehicle){
+    const out=Object.fromEntries(monthlyKeys().map(k=>[k,0]));
+    const rows=allMileage(vehicle);
+    for(let i=1;i<rows.length;i++){const d=num(rows[i].odometer)-num(rows[i-1].odometer); const k=rows[i].date.slice(0,7); if(d>0&&k in out)out[k]+=d;}
+    if(vehicle==="audi" && !rows.length){
+      const f=state.fuel.slice().sort((a,b)=>dateMs(a.date)-dateMs(b.date)||a.odometer-b.odometer);
+      for(let i=1;i<f.length;i++){const d=num(f[i].odometer)-num(f[i-1].odometer);const k=f[i].date.slice(0,7);if(d>0&&k in out)out[k]+=d;}
+    }
+    return out;
+  }
+
+  function monthlySpendMap(){
+    const out=Object.fromEntries(monthlyKeys().map(k=>[k,0]));
+    state.fuel.forEach(r=>{if(r.date.slice(0,7) in out)out[r.date.slice(0,7)]+=num(r.spend);});
+    state.charging.forEach(r=>{if(r.date.slice(0,7) in out)out[r.date.slice(0,7)]+=chargeCost(r);});
+    state.maintenance.forEach(r=>{if(r.date.slice(0,7) in out)out[r.date.slice(0,7)]+=num(r.cost);});
+    return out;
+  }
+
+  function costKmByMonth(){
+    const keys=monthlyKeys(), spend=monthlySpendMap(), a=monthlyMileageMap("audi"), v=monthlyMileageMap("vistiq");
+    return keys.map(k=>({label:k,value:(a[k]+v[k])>0?spend[k]/(a[k]+v[k]):null}));
+  }
+
+  function leasePaceByMonth(){
+    const keys=monthlyKeys();
+    const start=state.settings.leaseStart, end=state.settings.leaseEnd, allowance=num(state.settings.allowance);
+    const startMs=dateMs(start), endMs=dateMs(end), span=Math.max(1,endMs-startMs);
+    const rows=allMileage("vistiq");
+    const first=num(state.settings.leaseOdo);
+    return keys.map(k=>{
+      const monthEnd=new Date(`${k}-01T12:00:00`); monthEnd.setMonth(monthEnd.getMonth()+1); monthEnd.setDate(0);
+      const date=monthEnd.toISOString().slice(0,10);
+      const ms=Math.min(endMs,Math.max(startMs,dateMs(date)));
+      const target=allowance*((ms-startMs)/span);
+      let actual=first;
+      rows.forEach(r=>{if(dateMs(r.date)<=ms)actual=Math.max(actual,num(r.odometer));});
+      return {label:k,actual:Math.max(0,actual-first),target:Math.max(0,target)};
+    });
+  }
+
   function fuelEfficiency() {
     const rows=state.fuel.slice().sort((a,b)=>dateMs(a.date)-dateMs(b.date)||a.odometer-b.odometer);
     let liters=0, distance=0, spend=0;
@@ -476,6 +529,12 @@
       .filter(r=>new Date(`${r.date}T12:00:00`).getFullYear()===year)
       .reduce((s,r)=>s+num(r.cost),0);
     setText("metricTotalSpend", fmtMoney(ySpend));
+    const vEff = vistiqEfficiency();
+    const vCost = vehicleCostKm("vistiq");
+    setText("metricVistiqKwh100", vEff.kwh100 == null ? "—" : `${fmtNum(vEff.kwh100,1)}`);
+    setText("metricVistiqCostKm", vCost.costKm == null ? "—" : fmtMoney(vCost.costKm));
+    setText("metricAudiCostKm", audi.costKm == null ? "—" : fmtMoney(audi.costKm));
+    setText("metricChargeSpend", fmtMoney(chargeTotal()));
 
     // Keep card text in sync even if a prior index.html omitted these IDs.
     const aCard = document.querySelector("#home .vehicle:nth-of-type(1) .cost-km");
@@ -624,92 +683,60 @@
     drawLineChart("garageAudiMileageChart", mileageByMonth("audi"), "km");
     drawLineChart("garageSpendChart", fuelMonthSpend(), "$", true);
     drawLineChart("garageEfficiencyChart", efficiencyByMonth(), "L/100 km");
+    drawLineChart("garageCostKmChart", costKmByMonth(), "$ / km", true);
+    drawMultiLineChart("leasePaceChart", leasePaceByMonth());
   }
 
-  function drawLineChart(id, data, unit, money=false){
-    const canvas=$(id); if(!canvas)return;
-    const dpr=window.devicePixelRatio||1;
-    const rect=canvas.getBoundingClientRect();
-    const w=Math.max(280,Math.floor(rect.width||canvas.clientWidth||850));
-    const h=Math.max(170,Math.floor(rect.height||canvas.clientHeight||220));
+  function chartLabel(label, value, unit, money){
+    if(money) return fmtMoney(value);
+    return `${fmtNum(value, value>=100?0:1)} ${unit}`;
+  }
+
+  function chartBase(canvas){
+    const dpr=window.devicePixelRatio||1, rect=canvas.getBoundingClientRect();
+    const w=Math.max(280,Math.floor(rect.width||canvas.clientWidth||850)), h=Math.max(170,Math.floor(rect.height||canvas.clientHeight||220));
     canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
-    const ctx=canvas.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0);
-    ctx.clearRect(0,0,w,h);
-
+    const ctx=canvas.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
     const style=getComputedStyle(document.documentElement);
-    const muted=style.getPropertyValue("--muted").trim()||"#94a3b8";
-    const line=style.getPropertyValue("--line").trim()||"#263244";
-    const textColor=style.getPropertyValue("--text").trim()||"#f8fafc";
-    const accent=style.getPropertyValue("--blue").trim()||"#60a5fa";
+    return {ctx,w,h,muted:style.getPropertyValue("--muted").trim()||"#94a3b8",line:style.getPropertyValue("--line").trim()||"#263244",text:style.getPropertyValue("--text").trim()||"#f8fafc",accent:style.getPropertyValue("--blue").trim()||"#60a5fa",pad:{l:42,r:12,t:28,b:30}};
+  }
 
+  function monthLabel(label){const [yy,mm]=label.split("-");return new Date(Number(yy),Number(mm)-1,1).toLocaleDateString("en-CA",{month:"short"});}
+
+  function drawLineChart(id,data,unit,money=false){
+    const canvas=$(id); if(!canvas)return; const c=chartBase(canvas),{ctx,w,h,muted,line,accent,pad}=c;
     const valid=data.filter(x=>x.value!==null&&Number.isFinite(Number(x.value)));
-    const pad={l:36,r:10,t:14,b:28};
-    ctx.font="10px system-ui";
-    ctx.strokeStyle=line;ctx.fillStyle=muted;ctx.lineWidth=1;
+    ctx.font="10px system-ui"; ctx.strokeStyle=line; ctx.fillStyle=muted; ctx.lineWidth=1;
+    if(!valid.length){ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("No data yet",w/2,h/2);return;}
+    const max=Math.max(...valid.map(x=>Number(x.value)),0), min=Math.min(...valid.map(x=>Number(x.value)),0), range=max-min||1, yMax=max+range*.16, yMin=Math.max(0,min-range*.08), plotW=w-pad.l-pad.r, plotH=h-pad.t-pad.b;
+    for(let i=0;i<4;i++){const y=pad.t+plotH*i/3;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();const v=yMax-(yMax-yMin)*i/3;ctx.textAlign="right";ctx.textBaseline="middle";ctx.fillText(money?fmtMoney(v):fmtNum(v,v>=100?0:1),pad.l-6,y);}
+    const pts=data.map((x,i)=>{if(x.value===null)return null;const v=Number(x.value);return {x:pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1)),y:pad.t+(yMax-v)/(yMax-yMin)*plotH,value:v,label:x.label};});
+    ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.beginPath();let started=false;pts.forEach(p=>{if(!p){started=false;return;}if(!started){ctx.moveTo(p.x,p.y);started=true;}else ctx.lineTo(p.x,p.y);});ctx.stroke();
+    ctx.font="10px system-ui"; pts.forEach(p=>{if(!p)return;ctx.fillStyle=accent;ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue("--text").trim()||"#f8fafc";ctx.textAlign="center";ctx.textBaseline="bottom";ctx.fillText(chartLabel(p.label,p.value,unit,money),p.x,Math.max(10,p.y-7));});
+    ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="top";data.forEach((x,i)=>{if(i%Math.max(1,Math.ceil(data.length/6))!==0&&i!==data.length-1)return;const xx=pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1));ctx.fillText(monthLabel(x.label),xx,h-pad.b+9);});
+    attachChartTooltip(canvas,()=>pts.filter(Boolean),p=>`${monthLabel(p.label)} · ${chartLabel(p.label,p.value,unit,money)}`);
+  }
 
-    if(!valid.length){
-      ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle=muted;
-      ctx.fillText("No data yet",w/2,h/2);
-      return;
-    }
-    const max=Math.max(...valid.map(x=>Number(x.value)),0);
-    const min=Math.min(...valid.map(x=>Number(x.value)),0);
-    const range=max-min || 1;
-    const yMax=max + range*.12;
-    const yMin=Math.max(0,min-range*.08);
-    const plotW=w-pad.l-pad.r, plotH=h-pad.t-pad.b;
+  function drawMultiLineChart(id,data){
+    const canvas=$(id);if(!canvas)return;const c=chartBase(canvas),{ctx,w,h,muted,line,accent,pad}=c;
+    const vals=data.flatMap(x=>[x.actual,x.target]).filter(Number.isFinite);
+    if(!vals.length){ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("No data yet",w/2,h/2);return;}
+    const max=Math.max(...vals,1), yMax=max*1.14, plotW=w-pad.l-pad.r,plotH=h-pad.t-pad.b;
+    for(let i=0;i<4;i++){const y=pad.t+plotH*i/3;ctx.strokeStyle=line;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();ctx.fillStyle=muted;ctx.font="10px system-ui";ctx.textAlign="right";ctx.textBaseline="middle";ctx.fillText(fmtNum(yMax-(yMax/3)*i,0),pad.l-6,y);}
+    const makePts=(key,series)=>data.map((x,i)=>({x:pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1)),y:pad.t+(yMax-x[key])/yMax*plotH,value:x[key],label:x.label,series}));
+    const actual=makePts("actual","Actual"),target=makePts("target","Target");
+    [[actual,accent,2],[target,muted,1.5]].forEach(([pts,col,lw])=>{ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();pts.forEach(p=>{ctx.fillStyle=col;ctx.beginPath();ctx.arc(p.x,p.y,2.7,0,Math.PI*2);ctx.fill();});});
+    ctx.font="10px system-ui";actual.forEach(p=>{ctx.fillStyle=accent;ctx.textAlign="center";ctx.textBaseline="bottom";ctx.fillText(fmtNum(p.value,0),p.x,Math.max(10,p.y-6));});
+    ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="top";data.forEach((x,i)=>{if(i%Math.max(1,Math.ceil(data.length/6))!==0&&i!==data.length-1)return;ctx.fillText(monthLabel(x.label),actual[i].x,h-pad.b+9);});
+    ctx.textAlign="left";ctx.fillStyle=accent;ctx.fillText("● Actual",pad.l,10);ctx.fillStyle=muted;ctx.fillText("● Target",pad.l+65,10);
+    attachChartTooltip(canvas,()=>actual.concat(target),p=>`${monthLabel(p.label)} · ${p.series}: ${fmtNum(p.value,0)} km`);
+  }
 
-    // horizontal grid
-    for(let i=0;i<4;i++){
-      const y=pad.t+plotH*i/3;
-      ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();
-      const v=yMax-(yMax-yMin)*i/3;
-      ctx.fillStyle=muted;ctx.textAlign="right";ctx.textBaseline="middle";
-      ctx.fillText(money?fmtMoney(v):fmtNum(v, v>=100?0:1),pad.l-5,y);
-    }
-
-    const pts=data.map((x,i)=>{
-      const v=x.value===null?null:Number(x.value);
-      return v===null?null:{
-        x:pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1)),
-        y:pad.t+(yMax-v)/(yMax-yMin)*plotH
-      };
-    });
-
-    ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.lineJoin="round";ctx.lineCap="round";
-    ctx.beginPath();let started=false;
-    pts.forEach(p=>{if(!p){started=false;return;} if(!started){ctx.moveTo(p.x,p.y);started=true;}else ctx.lineTo(p.x,p.y);});
-    ctx.stroke();
-
-    // Points + exact value labels. Labels are shown for every populated month
-    // (the chart currently spans at most 12 monthly buckets), so the actual
-    // number is visible without needing to estimate from the y-axis.
-    pts.forEach((p,i)=>{
-      if(!p)return;
-      ctx.fillStyle=accent;
-      ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();
-
-      const raw=Number(data[i].value);
-      const valueLabel=money?fmtMoney(raw):fmtNum(raw, unit==="L/100 km"?1:0);
-      ctx.font="600 10px system-ui";
-      ctx.textAlign="center";
-      ctx.textBaseline="bottom";
-      const labelY=Math.max(10,p.y-7);
-      // Small background keeps labels readable when they sit over the line/grid.
-      const tw=ctx.measureText(valueLabel).width;
-      ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue("--card").trim()||"#111827";
-      ctx.fillRect(p.x-tw/2-3,labelY-10,tw+6,12);
-      ctx.fillStyle=textColor;
-      ctx.fillText(valueLabel,p.x,labelY);
-    });
-    ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="top";
-    data.forEach((x,i)=>{
-      if(i%Math.max(1,Math.ceil(data.length/6))!==0 && i!==data.length-1)return;
-      const xx=pad.l+(data.length===1?plotW/2:plotW*i/(data.length-1));
-      const [yy,mm]=x.label.split("-");
-      const label=new Date(Number(yy),Number(mm)-1,1).toLocaleDateString("en-CA",{month:"short"});
-      ctx.fillText(label,xx,h-pad.b+9);
-    });
+  function attachChartTooltip(canvas,getPoints,format){
+    if(canvas.__garageTooltipBound)return; canvas.__garageTooltipBound=true;
+    const tip=document.createElement("div");tip.className="chart-tooltip";document.body.appendChild(tip);
+    const showTip=e=>{const rect=canvas.getBoundingClientRect(),scaleX=canvas.width/(rect.width||1),scaleY=canvas.height/(rect.height||1),x=(e.clientX-rect.left)*scaleX/(window.devicePixelRatio||1),y=(e.clientY-rect.top)*scaleY/(window.devicePixelRatio||1);const pts=getPoints();let best=null,bd=Infinity;pts.forEach(p=>{const d=Math.hypot(p.x-x,p.y-y);if(d<bd){bd=d;best=p;}});if(best&&bd<28){tip.textContent=format(best);tip.style.left=`${e.clientX+10}px`;tip.style.top=`${e.clientY-34}px`;tip.classList.add("show");}else tip.classList.remove("show");};
+    canvas.addEventListener("pointermove",showTip);canvas.addEventListener("pointerleave",()=>tip.classList.remove("show"));canvas.addEventListener("pointerdown",showTip);
   }
 
   function show(screen){

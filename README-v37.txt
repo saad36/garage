@@ -1,14 +1,11 @@
-Garage v37 – Chart value labels
+Garage v37
 
-Replace these files in your GitHub Pages repo:
-- index.html
-- app.js
+Includes:
+1. Chart value labels on Garage Insights charts.
+2. Tap/hover tooltips with exact value and month.
+3. VISTIQ average kWh/100 km KPI.
+4. VISTIQ and Audi cost/km KPIs plus monthly Garage cost/km trend.
+5. VISTIQ lease pace chart showing Actual vs Target mileage.
 
-What changed:
-- Added exact value labels to every populated point on the four Garage Insights charts.
-- Mileage charts show km values.
-- Monthly spending shows dollar values.
-- Audi efficiency shows L/100 km values.
-- Labels have a small background for readability and remain mobile-friendly.
-
-No data model changes were made.
+Replace the existing index.html and app.js with the versions in this ZIP.
+Your existing localStorage data format is preserved.
