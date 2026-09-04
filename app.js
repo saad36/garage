@@ -655,8 +655,8 @@
 
   function renderVistiq() {
     const odo = currentVistiqOdo();
-    setText("vOdo", odo ? fmtNum(odo,0) : "—");
-    setText("vRemain", fmtNum(Math.max(0,num(state.settings.allowance)-num(odo)),0));
+    setText("vKm", odo ? fmtNum(odo,0) : "—");
+    setText("vRem", fmtNum(Math.max(0,num(state.settings.allowance)-num(odo)),0));
     const pct = state.settings.allowance>0 ? Math.min(100,Math.max(0,odo/state.settings.allowance*100)) : 0;
     setText("vLeasePct", `${fmtNum(pct,1)}%`);
     const bar=$("vBar"); if(bar) bar.style.width=`${pct}%`;
