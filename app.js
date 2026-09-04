@@ -204,7 +204,7 @@
       leaseStart: dateISO(first(settings, ["leaseStart","startDate"], DEFAULTS.settings.leaseStart)) || DEFAULTS.settings.leaseStart,
       leaseEnd: dateISO(first(settings, ["leaseEnd","endDate"], DEFAULTS.settings.leaseEnd)) || DEFAULTS.settings.leaseEnd,
       leaseOdo: num(first(settings, ["leaseOdo","startOdometer"], DEFAULTS.settings.leaseOdo)),
-      vOdo: num(first(settings, ["vOdo","vistiqOdo","currentMileage"], DEFAULTS.currentVistiqOdo())),
+      vOdo: num(first(settings, ["vOdo","vistiqOdo","currentMileage"], DEFAULTS.settings.vOdo)),
       excessRate: num(first(settings, ["excessRate","excessMileageRate"], DEFAULTS.settings.excessRate)),
       electricityRate: num(first(settings, ["electricityRate","homeRate","defaultRate"], DEFAULTS.settings.electricityRate))
     };
@@ -1051,7 +1051,7 @@
       state.mileage.push({id:id(),date,odometer:odo,vehicle:"vistiq",createdAt:new Date().toISOString()});
       toast("Mileage saved.");
     }
-    state.currentVistiqOdo()=odo;
+    state.settings.vOdo=odo;
     save(); renderAll();
     setVal("vMileageOdo","");
   }
@@ -1107,7 +1107,7 @@
     if(state[type].length===before)return;
     if(type==="mileage"){
       const latest=latestMileage("vistiq");
-      state.currentVistiqOdo()=latest?.odometer ?? state.currentVistiqOdo();
+      state.settings.vOdo=latest?.odometer ?? state.currentVistiqOdo();
     }
     save();renderAll();toast(`${label[0].toUpperCase()+label.slice(1)} deleted.`);
   }
@@ -1128,7 +1128,7 @@
     state.settings.leaseStart=dateISO($("sLeaseStart")?.value)||state.settings.leaseStart;
     state.settings.leaseEnd=dateISO($("sLeaseEnd")?.value)||state.settings.leaseEnd;
     state.settings.leaseOdo=num($("sLeaseOdo")?.value,state.settings.leaseOdo);
-    state.currentVistiqOdo()=num($("sVodo")?.value,currentVistiqOdo());
+    state.settings.vOdo=num($("sVodo")?.value,currentVistiqOdo());
     state.settings.excessRate=num($("sVrate")?.value,state.settings.excessRate);
     state.settings.electricityRate=num($("sERate")?.value,state.settings.electricityRate);
     save();renderAll();closeModal("settingsModal");toast("Settings saved.");
@@ -1158,12 +1158,12 @@
         const parsed=JSON.parse(String(reader.result));
         const imported=normalizeState(parsed);
 
-        // Definitive support for the current exported backup format:
-        // charging sessions are stored in the top-level "charge" array.
-        if (Array.isArray(parsed?.charge)) {
-          imported.charging = parsed.charge
-            .map(normalizeChargeRecord)
-            .filter(Boolean);
+        // Support both the current exported "charging" array and the older
+        // top-level "charge" array.
+        const rawCharges = Array.isArray(parsed?.charging) ? parsed.charging :
+          (Array.isArray(parsed?.charge) ? parsed.charge : null);
+        if (rawCharges) {
+          imported.charging = rawCharges.map(normalizeChargeRecord).filter(Boolean);
         }
 
         const total=imported.mileage.length+imported.fuel.length+imported.charging.length+imported.maintenance.length+imported.customVehicles.length;
