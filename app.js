@@ -367,6 +367,15 @@
   }
 
   function allMileage(vehicle) {
+    // Audi mileage source of truth: odometers recorded on Audi fuel entries.
+    // VISTIQ mileage source of truth: VISTIQ mileage history.
+    if (vehicle === "audi") {
+      return state.fuel
+        .filter(r => !r.vehicle || r.vehicle === "audi")
+        .filter(r => Number.isFinite(num(r.odometer)))
+        .map(r => ({ ...r, odometer: num(r.odometer) }))
+        .sort((a,b) => dateMs(a.date)-dateMs(b.date) || a.odometer-b.odometer);
+    }
     return state.mileage
       .filter(r => r.vehicle === vehicle)
       .sort((a,b) => dateMs(a.date)-dateMs(b.date) || a.odometer-b.odometer);
@@ -449,10 +458,6 @@
     const out=Object.fromEntries(monthlyKeys().map(k=>[k,0]));
     const rows=allMileage(vehicle);
     for(let i=1;i<rows.length;i++){const d=num(rows[i].odometer)-num(rows[i-1].odometer); const k=rows[i].date.slice(0,7); if(d>0&&k in out)out[k]+=d;}
-    if(vehicle==="audi" && !rows.length){
-      const f=state.fuel.slice().sort((a,b)=>dateMs(a.date)-dateMs(b.date)||a.odometer-b.odometer);
-      for(let i=1;i<f.length;i++){const d=num(f[i].odometer)-num(f[i-1].odometer);const k=f[i].date.slice(0,7);if(d>0&&k in out)out[k]+=d;}
-    }
     return out;
   }
 
@@ -468,7 +473,9 @@
     const keys = monthlyKeys();
     const spend = monthlySpendMap();
     const mileage = Object.fromEntries(keys.map(k => [k, 0]));
-    // Use the same odometer histories that power the mileage charts.
+
+    // Use exactly the same mileage source as the mileage KPI/chart:
+    // Audi = fuel odometer history; VISTIQ = mileage history.
     ["audi", "vistiq"].forEach(vehicle => {
       const rows = allMileage(vehicle);
       for (let i = 1; i < rows.length; i++) {
@@ -477,16 +484,7 @@
         if (d > 0 && k in mileage) mileage[k] += d;
       }
     });
-    // If an Audi has no standalone mileage history, derive distance from
-    // its fuel odometer readings (legacy-compatible behavior).
-    if (!allMileage("audi").length && state.fuel.length) {
-      const f = state.fuel.slice().sort((a,b) => dateMs(a.date)-dateMs(b.date) || num(a.odometer)-num(b.odometer));
-      for (let i = 1; i < f.length; i++) {
-        const d = num(f[i].odometer) - num(f[i-1].odometer);
-        const k = String(f[i].date || "").slice(0,7);
-        if (d > 0 && k in mileage) mileage[k] += d;
-      }
-    }
+
     return keys.map(k => ({
       label: k,
       value: mileage[k] > 0 && spend[k] > 0 ? spend[k] / mileage[k] : null
