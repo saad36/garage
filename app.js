@@ -62,6 +62,11 @@
       style:"currency", currency:"CAD", minimumFractionDigits:2, maximumFractionDigits:2
     });
   }
+  function fmtCostPerKm(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "—";
+    return n < 0.1 ? `$${n.toFixed(3)}` : fmtMoney(n);
+  }
   function fmtDate(v) {
     const s = dateISO(v);
     if (!s) return "—";
@@ -527,9 +532,11 @@
       const d=num(rows[i].odometer)-num(rows[i-1].odometer);
       if(d>0){distance+=d;liters+=num(rows[i].litres);spend+=num(rows[i].spend);}
     }
+    const totalTrackedCost = distance > 0 ? fuelTotal() + maintTotal("audi") : 0;
     return {
       l100: distance>0 ? liters/distance*100 : null,
-      cost100: distance>0 ? spend/distance*100 : null,
+      // Keep $/100 km mathematically consistent with Audi total cost/km.
+      cost100: distance>0 ? totalTrackedCost/distance*100 : null,
       liters: state.fuel.reduce((s,r)=>s+num(r.litres),0),
       spend
     };
@@ -584,8 +591,8 @@
     setText("sumCharge", fmtMoney(chargeTotal()));
     setText("sumTotal", fmtMoney(audi.total + ev.total));
 
-    setText("audiCostKm", audi.costKm == null ? "—" : fmtMoney(audi.costKm));
-    setText("vistiqCostKm", ev.costKm == null ? "—" : fmtMoney(ev.costKm));
+    setText("audiCostKm", audi.costKm == null ? "—" : fmtCostPerKm(audi.costKm));
+    setText("vistiqCostKm", ev.costKm == null ? "—" : fmtCostPerKm(ev.costKm));
 
     const year = new Date().getFullYear();
     const aY = mileageYTD("audi", year), vY = mileageYTD("vistiq", year);
@@ -605,15 +612,15 @@
     const vEff = vistiqEfficiency();
     const vCost = vehicleCostKm("vistiq");
     setText("metricVistiqKwh100", vEff.kwh100 == null ? "—" : `${fmtNum(vEff.kwh100,1)}`);
-    setText("metricVistiqCostKm", vCost.costKm == null ? "—" : fmtMoney(vCost.costKm));
-    setText("metricAudiCostKm", audi.costKm == null ? "—" : fmtMoney(audi.costKm));
+    setText("metricVistiqCostKm", vCost.costKm == null ? "—" : fmtCostPerKm(vCost.costKm));
+    setText("metricAudiCostKm", audi.costKm == null ? "—" : fmtCostPerKm(audi.costKm));
     setText("metricChargeSpend", fmtMoney(chargeTotal()));
 
     // Keep card text in sync even if a prior index.html omitted these IDs.
     const aCard = document.querySelector("#home .vehicle:nth-of-type(1) .cost-km");
     const vCard = document.querySelector("#home .vehicle:nth-of-type(2) .cost-km");
-    if (aCard) aCard.title = audi.costKm == null ? "No distance data yet" : `${fmtMoney(audi.costKm)} per km including fuel and maintenance`;
-    if (vCard) vCard.title = ev.costKm == null ? "No distance data yet" : `${fmtMoney(ev.costKm)} per km including charging and maintenance`;
+    if (aCard) aCard.title = audi.costKm == null ? "No distance data yet" : `${fmtCostPerKm(audi.costKm)} per km including fuel and maintenance`;
+    if (vCard) vCard.title = ev.costKm == null ? "No distance data yet" : `${fmtCostPerKm(ev.costKm)} per km including charging and maintenance`;
   }
 
   function renderAudi() {
