@@ -204,7 +204,7 @@
       leaseStart: dateISO(first(settings, ["leaseStart","startDate"], DEFAULTS.settings.leaseStart)) || DEFAULTS.settings.leaseStart,
       leaseEnd: dateISO(first(settings, ["leaseEnd","endDate"], DEFAULTS.settings.leaseEnd)) || DEFAULTS.settings.leaseEnd,
       leaseOdo: num(first(settings, ["leaseOdo","startOdometer"], DEFAULTS.settings.leaseOdo)),
-      vOdo: num(first(settings, ["vOdo","vistiqOdo","currentMileage"], DEFAULTS.settings.vOdo)),
+      vOdo: num(first(settings, ["vOdo","vistiqOdo","currentMileage"], DEFAULTS.currentVistiqOdo())),
       excessRate: num(first(settings, ["excessRate","excessMileageRate"], DEFAULTS.settings.excessRate)),
       electricityRate: num(first(settings, ["electricityRate","homeRate","defaultRate"], DEFAULTS.settings.electricityRate))
     };
@@ -372,15 +372,25 @@
   }
 
   function allMileage(vehicle) {
-    // Audi mileage source of truth: odometers recorded on Audi fuel entries.
-    // VISTIQ mileage source of truth: VISTIQ mileage history.
+    // Audi driven-distance history can come from either explicit odometer entries
+    // or fuel receipts. Explicit Audi mileage entries win for the same date.
     if (vehicle === "audi") {
-      return state.fuel
+      const explicit = state.mileage
+        .filter(r => r.vehicle === "audi")
+        .filter(r => Number.isFinite(num(r.odometer)))
+        .map(r => ({ ...r, odometer: num(r.odometer), _source: "mileage" }));
+
+      const explicitDates = new Set(explicit.map(r => String(r.date)));
+      const fuel = state.fuel
         .filter(r => !r.vehicle || r.vehicle === "audi")
         .filter(r => Number.isFinite(num(r.odometer)))
-        .map(r => ({ ...r, odometer: num(r.odometer) }))
+        .filter(r => !explicitDates.has(String(r.date)))
+        .map(r => ({ ...r, odometer: num(r.odometer), _source: "fuel" }));
+
+      return explicit.concat(fuel)
         .sort((a,b) => dateMs(a.date)-dateMs(b.date) || a.odometer-b.odometer);
     }
+
     return state.mileage
       .filter(r => r.vehicle === vehicle)
       .sort((a,b) => dateMs(a.date)-dateMs(b.date) || a.odometer-b.odometer);
@@ -565,8 +575,14 @@
     return { total, distance, costKm: distance>0 ? total/distance : null };
   }
 
-  function currentVistiqOdo() {
-    return latestMileage("vistiq")?.odometer ?? num(state.settings.vOdo);
+  function currentVistiqOdo(){
+    const rows = state.mileage
+      .filter(r => r.vehicle === "vistiq")
+      .filter(r => Number.isFinite(num(r.odometer)))
+      .slice()
+      .sort((a,b) => dateMs(a.date)-dateMs(b.date) || num(a.odometer)-num(b.odometer));
+    if (rows.length) return num(rows[rows.length-1].odometer);
+    return num(state.settings?.vOdo ?? state.settings?.vodo ?? 0);
   }
 
   function renderAll() {
@@ -631,6 +647,7 @@
     setText("aTotalSpend", fmtMoney(e.spend));
     setText("aServiceTotal", fmtMoney(maintTotal("audi")));
     renderFuelHistory();
+    renderAudiMileageHistory();
     renderMaintHistory("audi","aMaintHistory");
     setText("aMaintTotal",fmtMoney(maintTotal("audi")));
     setText("aMaintCount",String(state.maintenance.filter(r=>r.vehicle==="audi").length));
@@ -716,6 +733,22 @@
       </tr>`).join("") : `<tr><td colspan="6" class="empty">No Audi fuel logged yet.</td></tr>`;
   }
 
+  function renderAudiMileageHistory(){
+    const el=$("audiMileageHistory"); if(!el)return;
+    const rows=state.mileage
+      .filter(r=>r.vehicle==="audi")
+      .slice()
+      .sort((a,b)=>dateMs(b.date)-dateMs(a.date)||b.odometer-a.odometer);
+    el.innerHTML=rows.length ? rows.map((r,idx)=>{
+      const asc=rows.slice().sort((a,b)=>dateMs(a.date)-dateMs(b.date)||a.odometer-b.odometer);
+      const pos=asc.findIndex(x=>String(x.id)===String(r.id));
+      const prev=pos>0 ? asc[pos-1] : null;
+      const since=prev ? num(r.odometer)-num(prev.odometer) : null;
+      return `<tr><td>${fmtDate(r.date)}</td><td>${fmtNum(r.odometer,0)}</td><td>${since!==null&&since>=0?fmtNum(since,0)+" km":"—"}</td>
+        <td><button class="row-delete" type="button" onclick="deleteHistory('mileage','${esc(r.id)}')" aria-label="Delete Audi mileage">×</button></td></tr>`;
+    }).join("") : `<tr><td colspan="4" class="empty">No Audi odometer entries yet.</td></tr>`;
+  }
+
   function renderChargeHistory(){
     const el=$("chargeHistory"); if(!el)return;
     const rows=state.charging.slice().sort((a,b)=>dateMs(b.date)-dateMs(a.date));
@@ -749,7 +782,7 @@
   function setVal(id,value){const el=$(id);if(el && value!==undefined && value!==null)el.value=value;}
   function setDefaults(){
     const defaults={
-      aDate:todayISO(), vDate:todayISO(), vMileageDate:todayISO(), vMDate:todayISO(), aMDate:todayISO(),
+      aDate:todayISO(), aMileageDate:todayISO(), vDate:todayISO(), vMileageDate:todayISO(), vMDate:todayISO(), aMDate:todayISO(),
       vRate:state.settings.electricityRate, qChargeDate:todayISO(), qChargeRate:state.settings.electricityRate,
       qFuelDate:todayISO(), whatIfKm:2000,
       sAllowance:state.settings.allowance,sLeaseStart:state.settings.leaseStart,sLeaseEnd:state.settings.leaseEnd,
@@ -984,6 +1017,25 @@
   }
   function error(id, showIt){$(id)?.classList.toggle("show",!!showIt);}
 
+  function addAudiMileage(){
+    const date=$("aMileageDate")?.value, odo=num($("aMileageOdo")?.value,NaN);
+    let bad=false;
+    if(!date){error("aMileageDateErr",true);bad=true}else error("aMileageDateErr",false);
+    if(!Number.isFinite(odo)){error("aMileageOdoErr",true);bad=true}else error("aMileageOdoErr",false);
+    if(bad)return;
+
+    const existing=state.mileage.find(r=>r.vehicle==="audi"&&r.date===date);
+    if(existing){
+      existing.odometer=odo;
+      toast("Audi mileage updated.");
+    }else{
+      state.mileage.push({id:id(),date,odometer:odo,vehicle:"audi",createdAt:new Date().toISOString()});
+      toast("Audi mileage saved.");
+    }
+    save(); renderAll();
+    setVal("aMileageOdo","");
+  }
+
   function addMileage(){
     clearErrors("vistiq");
     const date=$("vMileageDate")?.value, odo=num($("vMileageOdo")?.value,NaN);
@@ -999,7 +1051,7 @@
       state.mileage.push({id:id(),date,odometer:odo,vehicle:"vistiq",createdAt:new Date().toISOString()});
       toast("Mileage saved.");
     }
-    state.settings.vOdo=odo;
+    state.currentVistiqOdo()=odo;
     save(); renderAll();
     setVal("vMileageOdo","");
   }
@@ -1055,7 +1107,7 @@
     if(state[type].length===before)return;
     if(type==="mileage"){
       const latest=latestMileage("vistiq");
-      state.settings.vOdo=latest?.odometer ?? state.settings.vOdo;
+      state.currentVistiqOdo()=latest?.odometer ?? state.currentVistiqOdo();
     }
     save();renderAll();toast(`${label[0].toUpperCase()+label.slice(1)} deleted.`);
   }
@@ -1076,7 +1128,7 @@
     state.settings.leaseStart=dateISO($("sLeaseStart")?.value)||state.settings.leaseStart;
     state.settings.leaseEnd=dateISO($("sLeaseEnd")?.value)||state.settings.leaseEnd;
     state.settings.leaseOdo=num($("sLeaseOdo")?.value,state.settings.leaseOdo);
-    state.settings.vOdo=num($("sVodo")?.value,currentVistiqOdo());
+    state.currentVistiqOdo()=num($("sVodo")?.value,currentVistiqOdo());
     state.settings.excessRate=num($("sVrate")?.value,state.settings.excessRate);
     state.settings.electricityRate=num($("sERate")?.value,state.settings.electricityRate);
     save();renderAll();closeModal("settingsModal");toast("Settings saved.");
@@ -1195,7 +1247,7 @@
 
   // Keep inline onclick handlers working after the refactor.
   Object.assign(window,{
-    show,toast,addMileage,addFuel,addCharge,addMaintenanceVehicle,deleteHistory,
+    show,toast,addMileage,addAudiMileage,addFuel,addCharge,addMaintenanceVehicle,deleteHistory,
     calculateWhatIf,setWhatIf,saveSettings,openSettings,closeSettings,exportData,importData,
     toggleTheme,setThemeMode,openQuickCharge,closeQuickCharge,saveQuickCharge,openQuickFuel,closeQuickFuel,
     saveQuickFuel,openInstall,closeInstall,installGarage,openVehicleModal,closeVehicleModal,

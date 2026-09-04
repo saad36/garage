@@ -195,6 +195,12 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
   <div class="field"><label>Price per litre *</label><input id="aPrice" class="input" type="number" step=".001" placeholder="$ / L"><div id="aPriceErr" class="error">Enter the price per litre.</div></div><div class="field"><label>Total spent *</label><input id="aSpend" class="input" type="number" step=".01" placeholder="$"><div id="aSpendErr" class="error">Enter the total spent.</div></div>
   <button class="btn primary full" onclick="addFuel()">Add fill-up</button>
  </div><div class="note">Enter the odometer, price per litre and total spent. Litres, distance, L/100 km and cost/100 km are calculated automatically.</div></section>
+ <section class="card"><h2>Update mileage</h2><div class="form">
+  <div class="field"><label>Date *</label><input id="aMileageDate" class="input" type="date"><div id="aMileageDateErr" class="error">Choose a date.</div></div>
+  <div class="field"><label>Odometer *</label><input id="aMileageOdo" class="input" type="number" placeholder="km"><div id="aMileageOdoErr" class="error">Enter the odometer.</div></div>
+  <button class="btn primary full" onclick="addAudiMileage()">Save Audi mileage</button>
+ </div><div class="note">Audi odometer entries are used for driven-distance and cost/km calculations. They do <strong>not</strong> affect fuel-efficiency calculations; those continue to use fuel fill-ups only.</div></section>
+ <section class="card"><h2>Audi mileage history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Odometer</th><th>Since last</th><th></th></tr></thead><tbody id="audiMileageHistory"></tbody></table></div></section>
  <section class="card"><h2>Efficiency trend</h2><canvas id="fuelChart" class="chart" width="850" height="220"></canvas></section>
  <section class="card"><h2>Fill-up history</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Odometer</th><th>$/L</th><th>Spent</th><th>Litres</th><th>L/100</th><th></th></tr></thead><tbody id="fuelHistory"></tbody></table></div></section>
  <section class="card" id="audiMaintenance"><div class="section-head"><h2>Maintenance</h2><span class="stat-label">Audi A7</span></div>
@@ -341,7 +347,7 @@ th,td{text-align:left;padding:10px 6px;border-bottom:1px solid var(--line);font-
  <div class="note">Downloads a complete JSON backup of your Garage data, including vehicle settings, fuel, charging, mileage and maintenance records.</div>
 </div></div>
 
-<script src="./app.js?v=38.0" defer></script>
+<script src="./app.js?v=38.5" defer></script>
 
 <div id="toast" class="toast" role="status"></div></body>
 </html>
