@@ -548,7 +548,9 @@
       // Keep $/100 km mathematically consistent with Audi total cost/km.
       cost100: distance>0 ? totalTrackedCost/distance*100 : null,
       liters: state.fuel.reduce((s,r)=>s+num(r.litres),0),
-      spend
+      // Fuel spent is the sum of ALL Audi fill-ups, independent of whether
+      // an odometer interval exists for the first/earliest fill-up.
+      spend: fuelTotal()
     };
   }
   function efficiencyByMonth() {
@@ -727,8 +729,8 @@
     el.innerHTML=rows.length ? rows.map(r=>`
       <tr>
         <td>${fmtDate(r.date)}</td><td>${fmtNum(r.odometer,0)}</td>
-        <td>${fmtNum(r.litres,1)}</td><td>${fmtMoney(r.pricePerLitre)}</td>
-        <td>${fmtMoney(r.spend)}</td>
+        <td>${fmtMoney(r.pricePerLitre)}</td><td>${fmtMoney(r.spend)}</td>
+        <td>${fmtNum(r.litres,1)}</td>
         <td><button class="row-delete" type="button" onclick="deleteHistory('fuel','${esc(r.id)}')" aria-label="Delete fill-up">×</button></td>
       </tr>`).join("") : `<tr><td colspan="6" class="empty">No Audi fuel logged yet.</td></tr>`;
   }
