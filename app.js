@@ -615,11 +615,14 @@
     const year = new Date().getFullYear();
     const aY = mileageYTD("audi", year), vY = mileageYTD("vistiq", year);
     const garage = aY + vY;
-    const month = new Date().getMonth()+1;
     setText("metricAudiYtd", `${fmtNum(aY,0)} km`);
     setText("metricVistiqYtd", `${fmtNum(vY,0)} km`);
     setText("metricGarageYtd", `${fmtNum(garage,0)} km`);
-    setText("metricAvgMonth", `${fmtNum(garage/Math.max(1,month),0)} km`);
+    const trackedRows = [ ...allMileage("audi"), ...allMileage("vistiq") ].filter(r=>r.date).sort((a,b)=>dateMs(a.date)-dateMs(b.date));
+    const trackingStart = trackedRows.length ? dateMs(trackedRows[0].date) : NaN;
+    const elapsedMonths = Number.isFinite(trackingStart) ? Math.max(1/30.4375, (Date.now()-trackingStart)/86400000/30.4375) : 0;
+    const allTimeDistance = mileageDistance("audi") + mileageDistance("vistiq");
+    setText("metricAvgMonth", `${trackedRows.length ? fmtNum(allTimeDistance/elapsedMonths,0) : "—"} km`);
     setText("metricFuelSpend", fmtMoney(fuelTotal()));
     const ySpend = [...state.fuel.map(r=>({date:r.date,cost:r.spend})),
       ...state.charging.map(r=>({date:r.date,cost:chargeCost(r)})),
@@ -869,10 +872,11 @@
       const yV=yAudi-hV;
       if(hAudi>0){ctx.fillStyle=muted;ctx.fillRect(x,yAudi,barW,hAudi);points.push({x:x+barW/2,y:yAudi,value:r.audi,label:r.label,series:"Audi"});}
       if(hV>0){ctx.fillStyle=accent;ctx.fillRect(x,yV,barW,hV);points.push({x:x+barW/2,y:yV,value:r.vistiq,label:r.label,series:"VISTIQ"});}
-      ctx.fillStyle=c.text;ctx.textBaseline="bottom";ctx.font="10px system-ui";
-      // Label only non-zero segments. For very small segments, keep the value above the segment.
-      if(r.vistiq>0){ctx.textAlign="center";ctx.fillText(`${fmtNum(r.vistiq,0)} km`,x+barW/2,Math.max(12,yV-4));}
-      if(r.audi>0 && hAudi>=16){ctx.textAlign="center";ctx.fillText(`${fmtNum(r.audi,0)} km`,x+barW/2,Math.max(12,yAudi-4));}
+      // Put labels inside sufficiently tall segments. Tiny segments are left
+      // unlabeled to avoid collisions; their exact values remain available by tap.
+      ctx.font="10px system-ui";ctx.textAlign="center";ctx.textBaseline="middle";
+      if(r.audi>0 && hAudi>=24){ctx.fillStyle="#ffffff";ctx.fillText(`${fmtNum(r.audi,0)}`,x+barW/2,yAudi+hAudi/2,Math.max(12,barW-2));}
+      if(r.vistiq>0 && hV>=24){ctx.fillStyle="#ffffff";ctx.fillText(`${fmtNum(r.vistiq,0)}`,x+barW/2,yV+hV/2,Math.max(12,barW-2));}
     });
     ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="top";
     rows.forEach((r,i)=>{if(i%Math.max(1,Math.ceil(rows.length/6))!==0&&i!==rows.length-1)return;const x=pad.l+i*(barW+gap)+barW/2;ctx.fillText(monthLabel(r.label),x,h-pad.b+9);});
@@ -916,35 +920,27 @@
     pts.forEach(p=>{if(!p){started=false;return;}if(!started){ctx.moveTo(p.x,p.y);started=true;}else ctx.lineTo(p.x,p.y);});
     ctx.stroke();
 
-    // Draw points and labels without stacking identical/nearby labels on top
-    // of one another. Edge labels get a safe inset from the canvas boundary.
+    // Keep value labels sparse: label meaningful non-zero points only, with a
+    // maximum of four labels per chart. Every point still has a tap tooltip.
     ctx.font="10px system-ui";
-    let previousLabel=null;
-    pts.forEach((p,i)=>{
-      if(!p)return;
-      ctx.fillStyle=accent;ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();
-      const label=chartLabel(p.label,p.value,unit,money);
-      const isZero = Math.abs(p.value) < 0.000001;
-      const sameAsPrevious=previousLabel && previousLabel.label===label && Math.abs(previousLabel.x-p.x)<55 && Math.abs(previousLabel.y-p.y)<22;
-      // Repeated zero months add visual noise without conveying new information.
-      // Keep the first zero and the final zero so the series remains understandable.
-      const nextValid = pts.slice(i+1).find(Boolean);
-      const laterNonZero = pts.slice(i+1).some(q=>q && Math.abs(q.value)>0.000001);
-      if(sameAsPrevious || (isZero && laterNonZero && previousLabel?.isZero))return;
+    pts.forEach((p,i)=>{if(!p)return;ctx.fillStyle=accent;ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();});
+    const labelCandidates=pts.map((p,i)=>({p,i})).filter(x=>x.p && Math.abs(x.p.value)>0.000001);
+    let selected=[];
+    if(labelCandidates.length<=4) selected=labelCandidates;
+    else {
+      const maxPoint=labelCandidates.reduce((a,b)=>b.p.value>a.p.value?b:a);
+      const lastPoint=labelCandidates[labelCandidates.length-1];
+      selected=[labelCandidates[0], maxPoint, ...labelCandidates.slice(1,-1).filter((x,j,arr)=>j===Math.floor(arr.length/2)).slice(0,1), lastPoint];
+      selected=[...new Map(selected.map(x=>[x.i,x])).values()].slice(0,4);
+    }
+    selected.forEach(({p})=>{
       ctx.fillStyle=c.text;ctx.textBaseline="bottom";
       const nearRight=p.x>w-62, nearLeft=p.x<pad.l+24;
-      let labelX=p.x, align="center";
-      if(nearRight){labelX=w-pad.r-3;align="right";}
-      else if(nearLeft){labelX=pad.l+4;align="left";}
-      ctx.textAlign=align;
-      let labelY=p.y-7;
-      if(previousLabel && Math.abs(previousLabel.x-p.x)<42 && Math.abs(previousLabel.y-labelY)<18){
-        labelY=Math.max(14,labelY-16);
-      }
-      ctx.fillText(label,labelX,Math.max(12,labelY));
-      previousLabel={label,x:p.x,y:labelY,isZero};
+      const labelX=nearRight?w-pad.r-3:(nearLeft?pad.l+4:p.x);
+      ctx.textAlign=nearRight?"right":(nearLeft?"left":"center");
+      const labelY=p.y<pad.t+22?p.y+17:p.y-7;
+      ctx.fillText(chartLabel(p.label,p.value,unit,money),labelX,labelY);
     });
-
     ctx.fillStyle=muted;ctx.textAlign="center";ctx.textBaseline="top";
     data.forEach((x,i)=>{
       if(i%Math.max(1,Math.ceil(data.length/6))!==0&&i!==data.length-1)return;
