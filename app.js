@@ -1,4 +1,4 @@
-/* Garage v36.1
+/* Garage v38.8
    Data-first dashboard renderer.
    - Uses one normalized localStorage document.
    - Migrates common legacy shapes without discarding records.
@@ -637,6 +637,21 @@
     setText("metricAudiCostKm", audi.costKm == null ? "—" : fmtCostPerKm(audi.costKm));
     setText("metricChargeSpend", fmtMoney(chargeTotal()));
 
+    // Readable mobile-first comparisons; calculations use existing canonical data.
+    const totalKm=aY+vY, aShare=totalKm>0?aY/totalKm*100:0, vShare=totalKm>0?vY/totalKm*100:0;
+    setText("homeAudiShareLabel", `${fmtNum(aY,0)} km · ${fmtNum(aShare,0)}%`);
+    setText("homeVistiqShareLabel", `${fmtNum(vY,0)} km · ${fmtNum(vShare,0)}%`);
+    const as=$("homeAudiShare"),vs=$("homeVistiqShare"); if(as)as.style.width=`${aShare}%`;if(vs)vs.style.width=`${vShare}%`;
+    const parts=[["homeFuelSpend","homeFuelBar",fuelTotal()],["homeChargeSpend","homeChargeBar",chargeTotal()],["homeMaintSpend","homeMaintBar",maintTotal("audi")+maintTotal("vistiq")]];
+    const allSpend=parts.reduce((s,p)=>s+p[2],0);parts.forEach(([label,bar,value])=>{setText(label,fmtMoney(value));const el=$(bar);if(el)el.style.width=`${allSpend?value/allSpend*100:0}%`;});
+    const fe=fuelEfficiency(),ve=vistiqEfficiency();setText("homeAudiEfficiency",fe.l100==null?"—":fmtNum(fe.l100,1));setText("homeVistiqEfficiency",ve.kwh100==null?"—":fmtNum(ve.kwh100,1));setText("homeAudiCost",audi.costKm==null?"—":fmtCostPerKm(audi.costKm));setText("homeVistiqCost",ev.costKm==null?"—":fmtCostPerKm(ev.costKm));
+    const keys=monthlyKeys(3).reverse(),am=monthlyMileageMap("audi"),vm=monthlyMileageMap("vistiq"),sm=monthlySpendMap(),mr=$("homeMonthlyRows");
+    if(mr)mr.innerHTML=keys.map(k=>{const label=new Date(`${k}-01T12:00:00`).toLocaleDateString("en-CA",{month:"short",year:"numeric"});return `<tr><td>${label}</td><td>${fmtNum(num(am[k])+num(vm[k]),0)} km</td><td>${fmtMoney(sm[k])}</td></tr>`;}).join("");
+    const settings=state.settings||{},odo=currentVistiqOdo(),allowance=num(settings.allowance),endMs=dateMs(settings.leaseEnd),todayMs=dateMs(todayISO()),remainingDays=Math.max(0,(endMs-todayMs)/86400000),safe=remainingDays>0?Math.max(0,allowance-odo)/remainingDays:0,startMs=dateMs(settings.leaseStart),elapsed=Math.max(1,(todayMs-startMs)/86400000),daily=Math.max(0,odo-num(settings.leaseOdo))/elapsed,projected=odo+daily*remainingDays,excess=Math.max(0,projected-allowance);
+    setText("homeLeaseProjected",`${fmtNum(projected,0)} km`);setText("homeLeaseSafePace",`${fmtNum(safe,1)} km/day`);setText("homeLeaseExcessCost",fmtMoney(excess*num(settings.excessRate)));
+    const maint=$("homeMaintenanceSummary");if(maint){const recent=state.maintenance.slice().sort((x,y)=>dateMs(y.date)-dateMs(x.date)).slice(0,3);maint.innerHTML=recent.length?recent.map(r=>`• ${esc(r.vehicle==="vistiq"?"VISTIQ":"Audi")}: ${esc(r.service||"Service")} — ${fmtDate(r.date)}${r.odometer?" at "+fmtNum(r.odometer,0)+" km":""}`).join("<br>"):"No maintenance logged yet. Add service records to build a history.";}
+    const checks=[];["audi","vistiq"].forEach(v=>{const rs=allMileage(v).slice().sort((x,y)=>dateMs(x.date)-dateMs(y.date));for(let i=1;i<rs.length;i++)if(num(rs[i].odometer)<num(rs[i-1].odometer))checks.push(`${v==="audi"?"Audi":"VISTIQ"} odometer decreases on ${fmtDate(rs[i].date)}.`);});const dc=$("homeDataChecks");if(dc)dc.textContent=checks.length?checks.join(" "):"No obvious odometer decreases detected.";
+
     // Keep card text in sync even if a prior index.html omitted these IDs.
     const aCard = document.querySelector("#home .vehicle:nth-of-type(1) .cost-km");
     const vCard = document.querySelector("#home .vehicle:nth-of-type(2) .cost-km");
@@ -800,11 +815,7 @@
     // Render each chart independently. A problem with one metric must never
     // prevent the remaining dashboard charts from rendering.
     const jobs = [
-      ["garageMileageChart", () => drawStackedMileageChart("garageMileageChart")],
-      ["garageSpendChart", () => drawLineChart("garageSpendChart", fuelMonthSpend(), "$", true)],
-      ["garageEfficiencyChart", () => drawLineChart("garageEfficiencyChart", efficiencyByMonth(), "L/100 km")],
-      ["garageCostKmChart", () => drawLineChart("garageCostKmChart", costKmByMonth(), "$ / km", true)],
-      ["leasePaceChart", () => drawMultiLineChart("leasePaceChart", leasePaceByMonth())]
+      ["fuelChart", () => drawLineChart("fuelChart", efficiencyByMonth(), "L/100 km")]
     ];
     jobs.forEach(([id, fn]) => {
       try { fn(); }
